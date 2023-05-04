@@ -9,8 +9,16 @@ class BitString:
     TBD:
     Support for hex input
     Should this class support negative numbers?
+    We need negative numbers only in integer type converting.
+    If user want to use negative number, bitstring will accept it and returns 2's complement number
+    However, bitstring instance does not know whether it is signed or not
+    To contain signed or unsigned attribute, use SignedBitString
     """
     def __init__(self, value: str, bitwidth: int = None) -> None:
+        self.set(value, bitwidth)
+
+    def set(self, value: str, bitwidth: int) -> None:
+        self._preprocess_binary_string(value, bitwidth)
         # Preprocess for binary string
         if self._check_bin_style(value):
             value = value[2:]
@@ -22,6 +30,19 @@ class BitString:
             raise ValueError('Bitwidth should be greater than or equal to the length of the value')
         else:
             self._bin = "0" * (bitwidth - len(value)) + value
+        pass
+
+    def _preprocess_binary_string(self, value, bitwidth):
+        # Check if input is negative value
+        # Check if input has signed characteristic
+        # Check if input is python binary string then reduces value to '01' sequence
+        if self._check_bin_style(value):
+            value = value[2:]
+        
+        return
+
+    def _negative_number(self):
+        return
     
     def _check_bin_style(self, value):
         return value[0:2] == '0b'
@@ -127,9 +148,6 @@ class BitString:
 
     def __irshift__(self, other):
         return
-    
-
-
 
     def __add__(self, other: 'BitString') -> 'BitString':
 #        result = self.add_binary(self._bin, other._bin)
@@ -192,6 +210,17 @@ class BitString:
     
     def __str__(self):
         return self._bin
+
+
+    
+class SignedBitString(BitString):
+    """
+    To contain signed or unsigned attribute, use SignedBitString
+    bitwidth must be given explicit
+    """
+    def __init__(self, value: str, bitwidth: int) -> None:
+        super().__init__(value, bitwidth)
+
 
 #a = BitString('1010')
 #b = BitString('1010')
