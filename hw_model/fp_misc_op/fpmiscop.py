@@ -32,16 +32,16 @@ class FloatPowerofTwo:
             a_isnormal = True
             # needs improvement... to support bitstring class subtraction
 #            ret_exp_0 = bf16.bit(bin(int(a_exp) + self.n))
-            ret_exp_0 = a_exp + bf16.bit(bin(self.n))
+            ret_exp_0 = a_exp + bf16.bit(a_exp.bitwidth, bin(self.n))
         
         # output
         if a_isnormal:
             # Overflow case: make inf
-            if ret_exp_0 > bf16.bit(bin((1 << self.a.exponent_bits) - 1)):
+            if ret_exp_0 > bf16.bit(ret_exp_0.bitwidth , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_1 = (1 << self.a.exponent_bits) - 1
                 ret_mant_1 = 0
             # Underflow case: make zero
-            elif ret_exp_0 < bf16.bit(bin(0)):
+            elif ret_exp_0 < bf16.bit(ret_exp_0.bitwidth, bin(0)):
                 ret_exp_1 = 0
                 ret_mant_1 = 0
             else:

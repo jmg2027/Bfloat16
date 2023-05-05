@@ -102,7 +102,7 @@ class Bfloat16:
         sign = binary_bf16[0]
         exponent = binary_bf16[1:1+self.exponent_bits]
         mantissa = binary_bf16[-self.mantissa_bits:]
-        return bit(sign, 1), bit(exponent, self.exponent_bits), bit(mantissa, self.mantissa_bits)
+        return bit(0, sign), bit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
 
     @classmethod
     def compose_bf16(cls, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> 'Bfloat16':
