@@ -36,8 +36,9 @@ def default_test():
     return
 
 def power_test():
-    a = bf16.float_to_bf16(3.56)
+    a = bf16.float_to_bf16(1)
     print(a)
+    print(a.pow(1))
     print(a.pow(3))
 
     print(a.pow(126))

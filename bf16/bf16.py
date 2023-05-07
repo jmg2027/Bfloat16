@@ -5,6 +5,7 @@ from typing import Tuple
 
 from bf16 import utils as util
 from bf16.bitstring import BitString as bit
+from bf16.bitstring import SignedBitString as sbit
 from hw_model.fp_misc_op.fpmiscop import FloatPowerofTwo as Pow
 from hw_model.fp_misc_op.fpmiscop import FloatNegative as Neg
 
@@ -61,27 +62,27 @@ class Bfloat16:
         return mantissa
     
     def isnan(self) -> bool:
-        return self.exponent == self.bias and self.mantissa != 0
+        return self.exponent == self.exp_max - self.bias and self.mantissa != 0
     
     def isden(self) -> bool:
-        return self.exponent == 0 and self.mantissa != 0
+        return self.exponent == 0 - self.bias and self.mantissa != 0
     
     # den is treated as zero
     def iszero(self) -> bool:
 #        return self.exponent == 0 and self.mantissa == 0
-        return self.exponent == 0
+        return self.exponent == 0 - self.bias
     
     def isinf(self) -> bool:
-        return self.exponent == self.bias and self.mantissa == 0
+        return self.exponent == self.exp_max - self.bias and self.mantissa == 0
     
     def isoverflow(self) -> bool:
-        flag = self.exponent > self.bias
+        flag = self.exponent > self.exp_max - self.bias
         if flag:
             raise ValueError(f"Bfloat16 instance overflow occured")
         return flag
 
     def isunderflow(self) -> bool:
-        flag = self.exponent < 0
+        flag = self.exponent < 0 - self.bias
         if flag:
             raise ValueError(f"Bfloat16 instance underflow occured")
         return flag
@@ -102,7 +103,7 @@ class Bfloat16:
         sign = binary_bf16[0]
         exponent = binary_bf16[1:1+self.exponent_bits]
         mantissa = binary_bf16[-self.mantissa_bits:]
-        return bit(0, sign), bit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
+        return bit(0, sign), sbit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
 
     @classmethod
     def compose_bf16(cls, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> 'Bfloat16':
@@ -113,12 +114,6 @@ class Bfloat16:
         exponent = biased_exponent - cls.bias
         return Bfloat16(sign, exponent, mantissa)
 
-#    def decompose_bf16_int(self) -> Tuple[str, str, str]:
-#        """
-#        returns integer form of sign, biased exponent, mantissa
-#        """
-#        return tuple(map(lambda x: int(x), self.decompose_bf16()))
-    
     @classmethod
     def float_to_bf16(cls, float: float) -> 'Bfloat16':
         bf16_bias = cls.bias
