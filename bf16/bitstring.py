@@ -82,11 +82,11 @@ class BitString:
             py_start, py_stop, py_step = index.indices(len(self))
             start, stop, step = len(self.bin) - py_start - 1, len(self.bin) - py_stop, py_step
             return_bitstring = ''.join(self.bin[i] for i in range(start, stop, step)) 
-            return __class__(len(return_bitstring), return_bitstring)
+            return self.__class__(len(return_bitstring), return_bitstring)
         elif isinstance(index, int):
             verilog_index = len(self.bin) - index - 1
             return_bitstring = self.bin[verilog_index: verilog_index + 1]
-            return __class__(1, return_bitstring)
+            return self.__class__(1, return_bitstring)
         else:
             raise TypeError('Invalid index type')
 
@@ -104,23 +104,23 @@ class BitString:
         return sign_extension + value
 
     def _apply_extension(self, other, operation, result_bitwidth):
-        a = __class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
-        b = __class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
+        a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
+        b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
         result = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
         sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
-        c = __class__(result_bitwidth, sign_extended_result)
+        c = self.__class__(result_bitwidth, sign_extended_result)
         return c
 
     # Methods
     # Full adder
     @classmethod
     def add_binary(cls, bin1: str, bin2: str) -> str:
-        max_len = max(bin1.bitwidth, bin2.bitwidth)
+        max_len = max(len(bin1), len(bin2))
         carry = 0
         result = ''
-        a, b = cls._padding(max_len, bin1.bin, bin1.bin[0]), cls._padding(max_len, bin2.bin, bin2.bin[0])
+        a, b = cls._padding(max_len, bin1, bin1[0]), cls._padding(max_len, bin2, bin2[0])
 
         for i in range(max_len - 1, -1, -1):
             current_bit_a = int(a[i])
@@ -133,84 +133,84 @@ class BitString:
         
         if carry:
             result = '1' + result
-        bitstring = cls(len(result), result)
-        return bitstring
+        return result
 
     @classmethod
-    def add_bitstring(cls, bin1: 'BitString', bin2: 'BitString') -> 'BitString':
-        max_len = max(bin1.bitwidth, bin2.bitwidth)
-        carry = 0
-        result = ''
-        a, b = cls._padding(max_len, bin1.bin, bin1.bin[0]), cls._padding(max_len, bin2.bin, bin2.bin[0])
-
-        for i in range(max_len - 1, -1, -1):
-            current_bit_a = int(a[i])
-            current_bit_b = int(b[i])
-
-            sum_bit = current_bit_a ^ current_bit_b ^ carry
-            carry = (current_bit_a & current_bit_b) | (current_bit_b & carry) | (carry & current_bit_a)
-
-            result = str(sum_bit) + result
-        
-        if carry:
-            result = '1' + result
-        bitstring = cls(len(result), result)
+    def add_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
+        result_bin = __class__.add_binary(bit1.bin, bit2.bin)
+        bitstring = __class__(len(result_bin), result_bin)
         return bitstring
     
     @classmethod
-    def mul_bitstring(cls, bit1: 'BitString', bit2: 'BitString'):
-#        bin1, bin2 = bit1.bin, bit2.bin
-#        result = '0'
-#        for i, bit in enumerate(reversed(bin2)):
-#            if bit == '1':
-#                partial_product = f'{bin1}{"0"*i}'
-#                result = cls.add_bitstring(cls(len(result) ,result), cls(len(partial_product), partial_product))
-        result = cls(bit1.bitwidth + bit2.bitwidth ,bin(int(bit1) * int(bit2)))
-        print(int(bit1))
-        print(int(bit2))
-        print(int(bit1) * int(bit2))
-        print(result)
-        return result
+    def mul_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
+        bin1, bin2 = bit1.bin, bit2.bin
+        result = '0'
+
+        for i, bit in enumerate(reversed(bin2)):
+            if bit == '1':
+                partial_product = f'{bin1}{"0" * i}'
+                result = cls.add_binary(result, partial_product)
+
+        return __class__(len(bin1) + len(bin2), result)
 
     # Concatenation
     def concat(self, other: 'BitString') -> 'BitString':
         if not isinstance(other, BitString):
             raise TypeError('Concatenation operation needs two Bitstring instances')
-        return __class__(len(f'{self.bin}{other.bin}'), f'{self.bin}{other.bin}')
+        return self.__class__(len(f'{self.bin}{other.bin}'), f'{self.bin}{other.bin}')
 
     # Unary operators
     def __neg__(self) -> 'BitString':
         """
         Two's complement
         """
-        return ~self + __class__(self.bitwidth, '1')
+        return ~self + self.__class__(self.bitwidth, '1')
 
     def __invert__(self) -> 'BitString':
         """
         NOT operation
         """
-        return __class__(self.bitwidth, ''.join('1' if b == '0' else '0' for b in self.bin))
+        return self.__class__(self.bitwidth, ''.join('1' if b == '0' else '0' for b in self.bin))
     
+    # Reduction operators
+    def reduceand(self) -> 'BitString':
+        result = self[0]
+        for i in range(self.bitwidth):
+            result = result & self[i]
+        return result
+
+    def reduceor(self) -> 'BitString':
+        result = self[0]
+        for i in range(self.bitwidth):
+            result = result | self[i]
+        return result
+
+    def reducexor(self) -> 'BitString':
+        result = self[0]
+        for i in range(self.bitwidth):
+            result = result ^ self[i]
+        return result
+
     # Bitwise
     def __and__(self, other: 'BitString') -> 'BitString':
         if not isinstance(other, BitString):
             raise TypeError('Bitwise AND operation needs two Bitstring instances')
         result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: __class__(result_bitwidth, bin(int(a) & int(b)))
+        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) & int(b)))
         return self._apply_extension(other, op, result_bitwidth)
 
     def __or__(self, other: 'BitString') -> 'BitString':
         if not isinstance(other, BitString):
             raise TypeError('Bitwise OR operation needs two Bitstring instances')
         result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: __class__(result_bitwidth, bin(int(a) | int(b)))
+        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) | int(b)))
         return self._apply_extension(other, op, result_bitwidth)
 
     def __xor__(self, other: 'BitString') -> 'BitString':
         if not isinstance(other, BitString):
             raise TypeError('Bitwise XOR operation needs two Bitstring instances')
         result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: __class__(result_bitwidth, bin(int(a) ^ int(b)))
+        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) ^ int(b)))
         return self._apply_extension(other, op, result_bitwidth)
     
     # Comparison
@@ -246,10 +246,10 @@ class BitString:
 
     # Shift
     def __lshift__(self, n: int):
-        return __class__(self.bitwidth, self.bin[n:] + '0' * n)
+        return self.__class__(self.bitwidth, self.bin[n:] + '0' * n)
 
     def __rshift__(self, n: int):
-        return __class__(self.bitwidth, '0' * n + self.bin[:-n])
+        return self.__class__(self.bitwidth, '0' * n + self.bin[:-n])
 
     def __ilshift__(self, n: int):
         return self.set_bin(self.bin[n:] + '0' * n)
@@ -332,14 +332,18 @@ class SignedBitString(BitString):
         return sign_extension + value
 
     def _apply_extension(self, other, operation, result_bitwidth):
-        a = __class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
-        b = __class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
+        a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
+        b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
         result = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
         sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
-        c = __class__(result_bitwidth, sign_extended_result)
+        c = self.__class__(result_bitwidth, sign_extended_result)
         return c
+
+    # Absolute value
+    def __abs__(self):
+        return
 
     # Formats
     def __int__(self):
@@ -362,23 +366,19 @@ class UnsignedBitString(BitString):
         super().__init__(bitwidth, value)
 
     def _apply_extension(self, other, operation, result_bitwidth):
-        a = __class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
-        b = __class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
+        a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
+        b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
         result = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
         sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
-        c = __class__(result_bitwidth, sign_extended_result)
+        c = self.__class__(result_bitwidth, sign_extended_result)
         return c
-#    def _apply_extension(self, other, operation, result_bitwidth):
-#        max_width = max(self.bitwidth, other.bitwidth)
-#        a = UnsignedBitString(max_width, self.bin.zfill(max_width))
-#        b = UnsignedBitString(max_width, other.bin.zfill(max_width))
-#        result = operation(a, b)
-#        if len(result.bin) > max_width:
-#            logger.warning(f'{a} and {b} Overflow occurred in UnsignedBitString operation.')
-#            result.bin = result.bin[-max_width:]
-#        return result
+
+    # Unsigned bitstring always extends to zero
+    def _sign_extend(self, new_width, value):
+        sign_extension = '0' * (new_width - len(value))
+        return sign_extension + value
 
     @classmethod
     def _padding(cls, bitwidth, value: 'str', pad: str) -> str:
@@ -388,66 +388,6 @@ class UnsignedBitString(BitString):
     # Override binary arithmetic operations if needed
 
 if __name__ == '__main__':
-    import random
-
-    def assert_equal(expected, actual, test_name):
-        if expected != actual:
-            print(f"{test_name}: FAIL (Expected {expected}, got {actual})")
-        else:
-            print(f"{test_name}: PASS")
-
-
-    def test_bitstring_classes():
-        # Test cases
-        test_cases = [
-            {'width': 4, 'value1': '1101', 'value2': '0101'},
-            {'width': 8, 'value1': '10011011', 'value2': '01100101'},
-            {'width': 16, 'value1': '1101101011011010', 'value2': '0101010101010101'}
-        ]
-
-        for test_case in test_cases:
-            width = test_case['width']
-            value1 = test_case['value1']
-            value2 = test_case['value2']
-
-            # Test BitString class
-            bitstring1 = BitString(bitwidth=width, value=value1)
-            bitstring2 = BitString(bitwidth=width, value=value2)
-
-            assert_equal(value1, bitstring1.bin, "BitString init")
-            assert_equal(value2, bitstring2.bin, "BitString init")
-
-            # Test SignedBitString class
-            signed_bitstring1 = SignedBitString(bitwidth=width, value=value1)
-            signed_bitstring2 = SignedBitString(bitwidth=width, value=value2)
-
-            assert_equal(value1, signed_bitstring1.bin, "SignedBitString init")
-            assert_equal(value2, signed_bitstring2.bin, "SignedBitString init")
-
-            # Test UnsignedBitString class
-            unsigned_bitstring1 = UnsignedBitString(bitwidth=width, value=value2)
-            unsigned_bitstring2 = UnsignedBitString(bitwidth=width, value=value2)
-
-            assert_equal(value2, unsigned_bitstring1.bin, "UnsignedBitString init")
-            assert_equal(value2, unsigned_bitstring2.bin, "UnsignedBitString init")
-
-            # Test operations for each class
-            for class_name, class_instance1, class_instance2 in [("BitString", bitstring1, bitstring2),
-                                                                ("SignedBitString", signed_bitstring1, signed_bitstring2),
-                                                                ("UnsignedBitString", unsigned_bitstring1, unsigned_bitstring2)]:
-
-                add_result = class_instance1 + class_instance2
-                sub_result = class_instance1 - class_instance2
-                mul_result = class_instance1 * class_instance2
-
-                add_expected_result = bin(int(value1, 2) + int(value2, 2))[2:].zfill(width)
-                sub_expected_result = bin(int(value1, 2) - int(value2, 2))[2:].zfill(width)
-                mul_expected_result = bin(int(value1, 2) * int(value2, 2))[2:].zfill(width)
-
-                assert_equal(add_expected_result, add_result.bin, f"{class_name} Add")
-                assert_equal(sub_expected_result, sub_result.bin, f"{class_name} Sub")
-
-                assert_equal(mul_expected_result, mul_result.bin, f"{class_name} Mul")
 
 #    test_bitstring_classes()
 #    a = '0b001111111' # 127
@@ -473,18 +413,18 @@ if __name__ == '__main__':
 #    print('A-D: ', A-D)
 #    print('int(A-D): ', int(A-D))
 
-    a = '11000000'
-    b = bin(2)
-    c = bin(12)
-    d = '10000000'
-    A = UnsignedBitString(8, a)
-    B = UnsignedBitString(8, b)
-    C = UnsignedBitString(8, c)
-    D = UnsignedBitString(8, d)
-    print('B*C: ', B*C)
-    print('int(B*C): ', int(B*C))
-    print('A*D: ', A*D, len(A*D))
-    print('int(A*D): ', int(A*D))
+#    a = '11000000'
+#    b = bin(2)
+#    c = bin(12)
+#    d = '10000000'
+#    A = UnsignedBitString(8, a)
+#    B = UnsignedBitString(8, b)
+#    C = UnsignedBitString(8, c)
+#    D = UnsignedBitString(8, d)
+#    print('B*C: ', B*C)
+#    print('int(B*C): ', int(B*C))
+#    print('A*D: ', A*D, len(A*D))
+#    print('int(A*D): ', int(A*D))
 #    print(B)
 #    AB = A+B
 #    print(AB)
@@ -492,4 +432,5 @@ if __name__ == '__main__':
 #    print(int(B))
 #    print(int(A+C))
 #    print(int(A+D))
-#    print(int(A-D[7:0]))
+#    print(int(A-D))
+    pass
