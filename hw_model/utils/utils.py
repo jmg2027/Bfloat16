@@ -1,4 +1,6 @@
 from typing import List
+from bf16.bf16 import Bfloat16 as bf16
+from bf16.bitstring import BitString as bit
 
 def radix_4_booth_encoder(bin: str) -> List:
     """
@@ -22,3 +24,13 @@ def radix_4_booth_encoder(bin: str) -> List:
 
         enc_list.insert(0, enc_value)
     return enc_list
+
+def rounding(bit: bf16.bit, round_width, sticky_witdh) -> bf16.bit:
+    # bitwidth of bit should be larger than round_width + sticky_width
+    # guard_bit : bit[bit.bitwidth - round_width]
+    # round_bit : bit[guart_bit - 1]
+    # sticky_bit : bit[guart_bit - 2: guart_bit - 2 - sticky_width]
+    
+
+
+    return
