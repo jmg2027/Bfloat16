@@ -40,16 +40,19 @@ def power_test():
     print(a)
     print(a.pow(1))
     print(a.pow(3))
+    print(a.pow(-125))
 
     print(a.pow(126))
     print(a.pow(127))
     print(a.pow(128))
     print(a.pow(129))
+    print(a.pow(255))
     print(a.pow(256))
     print(a.pow(-126))
     print(a.pow(-127))
     print(a.pow(-128))
-#    print(a.pow(-129))
+    print(a.pow(-255))
+    print(a.pow(-256))
     return
 
 def neg_test():
@@ -69,12 +72,14 @@ def bitstring_test():
 def mul_test():
     a = bf16.float_to_bf16(12)
     b = bf16.float_to_bf16(2)
+    print(a)
+    print(b)
     print(a*b)
     print(12.0 * 2.0)
     return
 
 if __name__ == "__main__":
-    power_test()
+#    power_test()
 #    neg_test()
-#    mul_test()
+    mul_test()
     pass
