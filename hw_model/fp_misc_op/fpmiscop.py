@@ -17,6 +17,12 @@ class FloatPowerofTwo:
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a.decompose_bf16()
 
+        # Exponent to signed bitstring for n to be negative
+        # +1 for sign bit
+        signed_a_exp = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
+        signed_bias = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+        signed_n = bf16.sbit(a_exp.bitwidth + 2, bin(self.n))
+
         #Check for special cases
         # input
         # zero
@@ -32,17 +38,18 @@ class FloatPowerofTwo:
         # normal case
         else:
             a_isnormal = True
-            ret_exp_0 = a_exp + bf16.sbit(a_exp.bitwidth, bin(self.n))
+            ret_exp_0 = signed_a_exp + signed_n
+
         
         # output
         if a_isnormal:
             # Overflow case: make inf
-            if ret_exp_0 > bf16.sbit(ret_exp_0.bitwidth , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_1 = (1 << self.a.exponent_bits) - 1
+            if ret_exp_0 > bf16.sbit(ret_exp_0.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
+                ret_exp_1 = bf16.sbit(a_exp.bitwidth + 2, bin((1 << self.a.exponent_bits) - 1))
                 ret_mant_1 = 0
             # Underflow case: make zero
-            elif ret_exp_0 < bf16.sbit(ret_exp_0.bitwidth, bin(0)):
-                ret_exp_1 = 0
+            elif ret_exp_0 < bf16.sbit(ret_exp_0.bitwidth + 2, bin(0)):
+                ret_exp_1 = bf16.sbit(a_exp.bitwidth + 2, '0')
                 ret_mant_1 = 0
             else:
                 ret_exp_1 = ret_exp_0
@@ -52,9 +59,11 @@ class FloatPowerofTwo:
             ret_mant_1 = a_mant
         ret_sign_1 = a_sign
 
+        # Remove sign bit from exponent
+        ret_exp_bit_1 = bf16.bit(a_exp.bitwidth, ret_exp_1.bin)
 
         # Compose BF16
-        pow = bf16.Bfloat16.compose_bf16(ret_sign_1, ret_exp_1, ret_mant_1)
+        pow = bf16.Bfloat16.compose_bf16(ret_sign_1, ret_exp_bit_1, ret_mant_1)
         return pow
 
 
@@ -75,9 +84,9 @@ class FloatNegative:
         # neg -> pos
         ret_exp = a_exp
         ret_mant = a_mant
-        if a_sign == bf16.bit('1'):
+        if a_sign == bf16.bit(1, '1'):
             ret_sign = '0'
-        elif a_sign == bf16.bit('0'):
+        elif a_sign == bf16.bit(1, '0'):
             ret_sign = '1'
         else:
             raise ValueError('Sign bit must be 0 or 1')
