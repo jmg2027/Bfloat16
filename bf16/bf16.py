@@ -6,8 +6,11 @@ from typing import Tuple
 from bf16 import utils as util
 from bf16.bitstring import BitString as bit
 from bf16.bitstring import SignedBitString as sbit
+from bf16.bitstring import UnsignedBitString as ubit
+
 from hw_model.fp_misc_op.fpmiscop import FloatPowerofTwo as Pow
 from hw_model.fp_misc_op.fpmiscop import FloatNegative as Neg
+from hw_model.fp_mul.fpmul import FloatMultiplication as Mul
 
 
 class Bfloat16:
@@ -103,13 +106,16 @@ class Bfloat16:
         sign = binary_bf16[0]
         exponent = binary_bf16[1:1+self.exponent_bits]
         mantissa = binary_bf16[-self.mantissa_bits:]
-        return bit(0, sign), sbit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
+        return bit(1, sign), bit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
 
     @classmethod
     def compose_bf16(cls, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> 'Bfloat16':
         """
         From hardware output
         """
+        print('sign: ', sign_bin)
+        print('exponent: ', exponent_bin)
+        print('mant: ',mantissa_bin)
         sign, biased_exponent, mantissa = tuple(map(lambda x: int(x), (sign_bin, exponent_bin, mantissa_bin)))
         exponent = biased_exponent - cls.bias
         return Bfloat16(sign, exponent, mantissa)
@@ -146,13 +152,13 @@ class Bfloat16:
             raise TypeError("Both operands should be Bfloat16 objects.")
         
         addition = FloatAddition(self, other)
-        return FloatAddition.add()
+        return addition.add()
 
     def __mul__(self, other: 'Bfloat16') -> 'Bfloat16':
         if not isinstance(other, Bfloat16):
             raise TypeError("Both operands should be Bfloat16 objects.")
 
-        multiplication = FloatMultiplication(self, other)
+        multiplication = Mul(self, other)
         return multiplication.multiply()
 
     # from_blahblah method
@@ -168,7 +174,6 @@ class Bfloat16:
     def pow(self, n: int) -> 'Bfloat16':
         if not isinstance(n, int):
             raise TypeError("Operand of power of 2 should be integer number.")
-
         pow = Pow(self, n)
         return pow.power()
     
