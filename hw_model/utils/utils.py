@@ -1,6 +1,5 @@
 from typing import List
-from bf16.bf16 import Bfloat16 as bf16
-from bf16.bitstring import BitString as bit
+import bf16.bf16 as bf16
 
 def radix_4_booth_encoder(bin: str) -> List:
     """
@@ -25,12 +24,31 @@ def radix_4_booth_encoder(bin: str) -> List:
         enc_list.insert(0, enc_value)
     return enc_list
 
-def rounding(bit: bf16.bit, round_width, sticky_witdh) -> bf16.bit:
-    # bitwidth of bit should be larger than round_width + sticky_width
-    # guard_bit : bit[bit.bitwidth - round_width]
-    # round_bit : bit[guart_bit - 1]
-    # sticky_bit : bit[guart_bit - 2: guart_bit - 2 - sticky_width]
-    
+def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int, sticky_width = 3) -> bf16.bit:
+    # bitwidth of bit should be larger than round_width + grs bits
+    # xxxx_xxxx_xxxx_xxxx...
+    # xxxx_xxxG_RSSS_SSSS...
+    if round_width + 2 + sticky_width > bit.bitwidth:
+        raise ValueError("Bitwidth of before truncation should be larger than one of after truncation")
+    guard_bit = bit[bit.bitwidth - round_width - 1]
+    round_bit = bit[bit.bitwidth - round_width - 2]
+    sticky_bitsting = bit[bit.bitwidth - round_width - 3: bit.bitwidth - round_width - 3 - sticky_width + 1]
 
+    sticky_bit = sticky_bitsting.reduceor()
+    truncated_bit = bit[bit.bitwidth-1:bit.bitwidth - round_width]
 
-    return
+    if guard_bit == bf16.ubit(1, '0'):
+        rounded_bit = truncated_bit
+    else:
+        if round_bit == bf16.ubit(1, '0'):
+            rounded_bit = truncated_bit + bf16.ubit(1, '1')
+        else:
+            if sticky_bit != bf16.ubit(1, '0'):
+                rounded_bit = truncated_bit + bf16.ubit(1, '1')
+            else:
+                if truncated_bit[0] == bf16.ubit(1, '0'):
+                    rounded_bit = truncated_bit
+                else:
+                    rounded_bit = truncated_bit + bf16.ubit(1, '1')
+                    
+    return rounded_bit

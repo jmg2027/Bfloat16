@@ -69,17 +69,62 @@ def bitstring_test():
     print(c)
     return
 
-def mul_test():
-    a = bf16.float_to_bf16(12)
-    b = bf16.float_to_bf16(2)
+def mul_test_set(num1, num2):
+    a = bf16.float_to_bf16(num1)
+    b = bf16.float_to_bf16(num2)
     print(a)
     print(b)
     print(a*b)
-    print(12.0 * 2.0)
+    print(num1 * num2)
+    return
+
+def mul_test():
+    mul_test_set(2, 12)
+    mul_test_set(-2, 12)
+    mul_test_set(2, -12)
+    mul_test_set(-2, -12)
+    mul_test_set(123.124, 381.58)
+    mul_test_set(123.124, -381.58)
+    mul_test_set(-123.124, 381.58)
+    mul_test_set(-123.124, -381.58)
+    mul_test_set(0.00076, 0.3256)
+    mul_test_set(-0.00076, 0.3256)
+    mul_test_set(0.00076, -0.3256)
+    mul_test_set(-0.00076, -0.3256)
+    mul_test_set(111111111111111111, 99999999999999999999999999999999999999)
+    mul_test_set(0, 0)
+    return
+
+def add_test_set(num1, num2):
+    a = bf16.float_to_bf16(num1)
+    b = bf16.float_to_bf16(num2)
+    print(a)
+    print(b)
+    print(a+b)
+    print(num1 + num2)
+    return
+
+def add_test():
+    add_test_set(2, 12)
+    add_test_set(-2, 12)
+    add_test_set(2, -12)
+    add_test_set(-2, -12)
+    add_test_set(123.124, 381.58)
+    add_test_set(123.124, -381.58)
+    add_test_set(-123.124, 381.58)
+    add_test_set(-123.124, -381.58)
+    add_test_set(0.00076, 0.3256)
+    add_test_set(-0.00076, 0.3256)
+    add_test_set(0.00076, -0.3256)
+    add_test_set(-0.00076, -0.3256)
+    add_test_set(111111111111111111, 99999999999999999999999999999999999999)
+    # TBD
+#    add_test_set(0, 0)
     return
 
 if __name__ == "__main__":
 #    power_test()
 #    neg_test()
-    mul_test()
+#    mul_test()
+    add_test()
     pass

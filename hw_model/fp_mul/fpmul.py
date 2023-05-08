@@ -1,3 +1,5 @@
+import bf16.bf16 as bf16
+
 class FloatMultiplication:
     def __init__(self, a:'bf16.Bfloat16', b:'bf16.Bfloat16') -> None:
         self.a = a
@@ -13,13 +15,16 @@ class FloatMultiplication:
         a_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
         b_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{b_exp.bin}')
         bias_signed = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+
+        a_mant_us = bf16.ubit(a_mant.bitwidth, f'{a_mant.bin}')
+        b_mant_us = bf16.ubit(b_mant.bitwidth, f'{b_mant.bin}')
         
         # sign
         ret_sign = a_sign ^ b_sign
 
         # Special cases
         #input
-        a_isnormal = False
+        isnormal = False
         # nan * ? -> nan
         if self.a.isnan() or self.b.isnan():
             ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
@@ -34,34 +39,56 @@ class FloatMultiplication:
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # zero * x = zero
         elif ((not self.a.isinf()) and self.b.iszero()) or (self.a.iszero() and (not self.b.isinf())):
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits * '0', bin(bf16.Bfloat16.exp_max))
-            ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits * '0', bf16.Bfloat16.mantissa_bits * '0')
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bf16.Bfloat16.exponent_bits * '0')
+            ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # normal case
         else:
-            a_isnormal = True
+            isnormal = True
 
-        if a_isnormal:
+        if isnormal:
             # exponent
             ret_exp_0 = a_exp_signed + b_exp_signed - bias_signed
             # mantissa
-            print('a_mant: ', a_mant)
-            print('b_mant: ', b_mant)
-            ret_mant_0 = (a_mant * b_mant)
-            print('ret_mant_0: ', ret_mant_0, len(ret_mant_0))
+            ret_mant_0 = (a_mant_us * b_mant_us)
 
             #normalize & rounding
-            # now: truncate
-            if ret_mant_0[((bf16.Bfloat16.mantissa_bits + 1) * 2 - 1)] == bf16.bit(1, '1'):
-                ret_exp_1 = ret_exp_0 + 1
-                ret_mant_1 = (ret_mant_0 >> 1)[(bf16.Bfloat16.mantissa_bits) * 2:0]
-                ret_mant_2 = ret_mant_1[(bf16.Bfloat16.mantissa_bits) * 2: bf16.Bfloat16.mantissa_bits]
+            # if mant = 16b'1111_1111_1111_1111 then after rounding and postnormalization:: exp = exp + 2, mant = 7'b0
+            if ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, '1111111111111111'):
+                ret_exp_1 = ret_exp_0 + bf16.sbit(len(ret_exp_0) + 2 ,'2')
+                # mant[15:0]
+                ret_mant_1 = ret_mant_0
+                # mant[15:8]
+                ret_mant_2 = bf16.ubit(8, '10000000')
+            # mant[15] == 1
+            elif ret_mant_0[len(ret_mant_0) - 1] == bf16.bit(1, '1'):
+                ret_exp_1 = ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2 ,'1')
+                # mant[15:8]
+                ret_mant_1 = ret_mant_0
+                # rounding
+                # mant[15:8]
+                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
+            # mant[15] == 1
             else:
                 ret_exp_1 = ret_exp_0
-                ret_mant_1 = ret_mant_0
-                ret_mant_2 = ret_mant_1[(bf16.Bfloat16.mantissa_bits + 1) * 2 - 1: bf16.Bfloat16.mantissa_bits + 1]
+                # mant[14:0]
+                ret_mant_1 = ret_mant_0[len(ret_mant_0) - 2:0]
+                # mant[14:7]
+                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
 
-            #postnormalize
-            ret_mant_3 = ret_mant_2[bf16.Bfloat16.mantissa_bits * 2 - 1:bf16.Bfloat16.mantissa_bits]
+            # remove hidden bit
+            ret_mant_3 = ret_mant_2[bf16.Bfloat16.mantissa_bits - 1:0]
+
+            # Overflow case: make inf
+            if ret_exp_1 > bf16.sbit(ret_exp_1.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
+                ret_exp_1 = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin((1 << self.a.exponent_bits) - 1))
+                ret_mant_3 = 0
+            # Underflow case: make zero
+            elif ret_exp_1 < bf16.sbit(ret_exp_1.bitwidth + 2, bin(0)):
+                ret_exp_1 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
+                ret_mant_3 = 0
+        else:
+            ret_exp_1 = ret_exp_0
+            ret_mant_3 = ret_mant_0
 
 
         # Remove sign bit from exponent

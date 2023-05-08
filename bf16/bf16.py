@@ -11,6 +11,9 @@ from bf16.bitstring import UnsignedBitString as ubit
 from hw_model.fp_misc_op.fpmiscop import FloatPowerofTwo as Pow
 from hw_model.fp_misc_op.fpmiscop import FloatNegative as Neg
 from hw_model.fp_mul.fpmul import FloatMultiplication as Mul
+from hw_model.fp_add.fpadd import FloatAddition as Add
+
+from hw_model.utils import utils as hwutil
 
 
 class Bfloat16:
@@ -113,9 +116,6 @@ class Bfloat16:
         """
         From hardware output
         """
-        print('sign: ', sign_bin)
-        print('exponent: ', exponent_bin)
-        print('mant: ',mantissa_bin)
         sign, biased_exponent, mantissa = tuple(map(lambda x: int(x), (sign_bin, exponent_bin, mantissa_bin)))
         exponent = biased_exponent - cls.bias
         return Bfloat16(sign, exponent, mantissa)
@@ -150,14 +150,12 @@ class Bfloat16:
     def __add__(self, other: 'Bfloat16') -> 'Bfloat16':
         if not isinstance(other, Bfloat16):
             raise TypeError("Both operands should be Bfloat16 objects.")
-        
-        addition = FloatAddition(self, other)
+        addition = Add(self, other)
         return addition.add()
 
     def __mul__(self, other: 'Bfloat16') -> 'Bfloat16':
         if not isinstance(other, Bfloat16):
             raise TypeError("Both operands should be Bfloat16 objects.")
-
         multiplication = Mul(self, other)
         return multiplication.multiply()
 
