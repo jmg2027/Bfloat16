@@ -58,8 +58,8 @@ class FloatAddition:
             # if exponent difference is greater than mantissa bits + GRSSS (7 + 5), lesser number is considered as zero?
 
             if a_exp_gt_b:
-                mant_unshift = a_mant_us.concat(bf16.ubit(3, '0'))
-                mant_shift_in = b_mant_us.concat(bf16.ubit(2, '0'))
+                mant_unshift = a_mant_us
+                mant_shift_in = b_mant_us
             else:
                 mant_unshift = b_mant_us.concat(bf16.ubit(3, '0'))
                 mant_shift_in = a_mant_us.concat(bf16.ubit(2, '0'))
@@ -86,7 +86,6 @@ class FloatAddition:
                 mant_inv_a = False
                 mant_inv_b = False
 
-            mant_add_carry = subtract_mant
             if mant_inv_a:
                 mant_add_in_a = ~mant_shift
                 mant_add_in_b = mant_unshift
@@ -97,9 +96,9 @@ class FloatAddition:
                 mant_add_in_a = mant_shift
                 mant_add_in_b = mant_unshift
 
-            mant_add = mant_add_in_a + mant_add_in_b + mant_add_carry
+            mant_add = mant_add_in_a + mant_add_in_b
 
-            ret_mant_0 = (mant_add[mant_add.bitwidth-1] & subtract_mant).concat(mant_add[mant_add.bitwidth-2:0])
+            ret_mant_0 = mant_add
 
             # Sign Caculation
             if a_exp_gt_b:
@@ -119,6 +118,7 @@ class FloatAddition:
                 ret_exp_0 = b_exp_signed
 
             # Normalization
+            # Need right shift with lza
             if ret_mant_0[ret_mant_0.bitwidth-1] == bf16.ubit(1, '1'):
                 ret_exp_1 = ret_exp_0 + bf16.ubit(ret_exp_0.bitwidth, '01')
                 ret_mant_1 = ret_mant_0
