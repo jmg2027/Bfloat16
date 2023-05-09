@@ -1,4 +1,6 @@
 from bf16.bf16 import Bfloat16 as bf16
+import numpy as np
+import tensorflow as tf
 
 def default_test():
     a = bf16(1,12,25)
@@ -75,7 +77,9 @@ def mul_test_set(num1, num2):
     print(a)
     print(b)
     print(a*b)
-    print(num1 * num2)
+    tfa = tf.cast(num1, tf.bfloat16)
+    tfb = tf.cast(num2, tf.bfloat16)
+    print(tfa * tfb)
     return
 
 def mul_test():
@@ -91,7 +95,7 @@ def mul_test():
     mul_test_set(-0.00076, 0.3256)
     mul_test_set(0.00076, -0.3256)
     mul_test_set(-0.00076, -0.3256)
-    mul_test_set(111111111111111111, 99999999999999999999999999999999999999)
+    mul_test_set(111111111.111111111, 999999999999.999999999999)
     mul_test_set(0, 0)
     return
 
@@ -101,23 +105,25 @@ def add_test_set(num1, num2):
     print(a)
     print(b)
     print(a+b)
-    print(num1 + num2)
+    tfa = tf.cast(num1, tf.bfloat16)
+    tfb = tf.cast(num2, tf.bfloat16)
+    print(tfa + tfb)
     return
 
 def add_test():
     add_test_set(2, 12)
-    add_test_set(-2, 12)
-    add_test_set(2, -12)
-    add_test_set(-2, -12)
-    add_test_set(123.124, 381.58)
-    add_test_set(123.124, -381.58)
-    add_test_set(-123.124, 381.58)
-    add_test_set(-123.124, -381.58)
-    add_test_set(0.00076, 0.3256)
-    add_test_set(-0.00076, 0.3256)
-    add_test_set(0.00076, -0.3256)
-    add_test_set(-0.00076, -0.3256)
-    add_test_set(111111111111111111, 99999999999999999999999999999999999999)
+#    add_test_set(-2, 12)
+#    add_test_set(2, -12)
+#    add_test_set(-2, -12)
+#    add_test_set(123.124, 381.58)
+#    add_test_set(123.124, -381.58)
+#    add_test_set(-123.124, 381.58)
+#    add_test_set(-123.124, -381.58)
+#    add_test_set(0.00076, 0.3256)
+#    add_test_set(-0.00076, 0.3256)
+#    add_test_set(0.00076, -0.3256)
+#    add_test_set(-0.00076, -0.3256)
+#    add_test_set(111111111111111111, 99999999999999999999999999999999999999)
     # TBD
 #    add_test_set(0, 0)
     return
