@@ -183,9 +183,19 @@ class Bfloat16:
     def __float__(self):
         float =  self.bf16_to_float()
         return float
+    
+    def _flag(self):
+        if self.isnan():
+            return ' NaN'
+        elif self.isinf():
+            return ' Inf'
+        elif self.iszero():
+            return ' Zero'
+        else:
+            return ''
 
     def __repr__(self):
-        return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
+        return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa}{self._flag()})"
 
 
 class Bfloat16Error(Exception):
