@@ -37,20 +37,29 @@ def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int, sticky_width =
     sticky_bit = sticky_bitsting.reduceor()
     truncated_bit = bit[bit.bitwidth-1:bit.bitwidth - round_width]
 
+    # G = 0
     if guard_bit == bf16.ubit(1, '0'):
         rounded_bit = truncated_bit
     else:
-        if round_bit == bf16.ubit(1, '0'):
+        # GR = 11
+        if round_bit == bf16.ubit(1, '1'):
             rounded_bit = truncated_bit + bf16.ubit(1, '1')
         else:
+            # GRS = 101
             if sticky_bit != bf16.ubit(1, '0'):
                 rounded_bit = truncated_bit + bf16.ubit(1, '1')
+            # GRS = 100
             else:
                 if truncated_bit[0] == bf16.ubit(1, '0'):
                     rounded_bit = truncated_bit
                 else:
                     rounded_bit = truncated_bit + bf16.ubit(1, '1')
                     
+    #print('trunc: ', truncated_bit)
+    #print('round: ', rounded_bit)
+    #print('guard', guard_bit)
+    #print('round', round_bit)
+    #print('sticky', sticky_bit)
     return rounded_bit
 
 def leading_zero_count(bit: 'bf16.ubit') -> int:

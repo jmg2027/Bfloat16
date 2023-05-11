@@ -86,13 +86,14 @@ class FloatMultiplication:
             elif ret_exp_1 < bf16.sbit(ret_exp_1.bitwidth + 2, bin(0)):
                 ret_exp_1 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
                 ret_mant_3 = 0
+        # Special case
         else:
             ret_exp_1 = ret_exp_0
             ret_mant_3 = ret_mant_0
 
 
         # Remove sign bit from exponent
-        ret_exp_bit_1 = bf16.bit(a_exp.bitwidth, ret_exp_1.bin)
+        ret_exp_bit_1 = bf16.bit(bf16.Bfloat16.exponent_bits, ret_exp_1.bin)
 
         # Compose BF16
         mul = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp_bit_1, ret_mant_3)

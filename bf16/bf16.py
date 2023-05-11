@@ -12,6 +12,7 @@ from hw_model.fp_misc_op.fpmiscop import FloatPowerofTwo as Pow
 from hw_model.fp_misc_op.fpmiscop import FloatNegative as Neg
 from hw_model.fp_mul.fpmul import FloatMultiplication as Mul
 from hw_model.fp_add.fpadd import FloatAddition as Add
+from hw_model.fp_fma.fpfma import FloatFMA as Fma
 
 from hw_model.utils import utils as hwutil
 
@@ -158,6 +159,13 @@ class Bfloat16:
             raise TypeError("Both operands should be Bfloat16 objects.")
         multiplication = Mul(self, other)
         return multiplication.multiply()
+
+    @classmethod
+    def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16') -> 'Bfloat16':
+        if not isinstance(a or b or c, Bfloat16):
+            raise TypeError("Three of operands should be Bfloat16 objects.")
+        fma = Fma(a, b, c)
+        return fma.fma()
 
     # from_blahblah method
     # ex) from_fp32, from_fp64

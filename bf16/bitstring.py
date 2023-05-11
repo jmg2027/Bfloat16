@@ -133,6 +133,8 @@ class BitString:
         
         if carry:
             result = '1' + result
+        else:
+            result = '0' + result
         return result
 
     @classmethod
@@ -249,13 +251,14 @@ class BitString:
         return self.__class__(self.bitwidth, self.bin[n:] + '0' * n)
 
     def __rshift__(self, n: int):
-        return self.__class__(self.bitwidth, '0' * n + self.bin[:-n])
+        # string [:-0] returns '', so - slicing should not be used
+        return self.__class__(self.bitwidth, '0' * n + self.bin[0:self.bitwidth-n])
 
     def __ilshift__(self, n: int):
         return self.set_bin(self.bin[n:] + '0' * n)
 
     def __irshift__(self, n: int):
-        return self.set_bin('0' * n + self.bin[:-n])
+        return self.set_bin('0' * n + self.bin[0:self.bitwidth-n])
 
     def __add__(self, other: 'BitString') -> 'BitString':
         if not isinstance(other, BitString):
@@ -317,7 +320,6 @@ class BitString:
         return self.bin
 
 
-    
 class SignedBitString(BitString):
     """
     To contain signed or unsigned attribute, use SignedBitString
@@ -388,12 +390,10 @@ class UnsignedBitString(BitString):
     # Override binary arithmetic operations if needed
 
 if __name__ == '__main__':
-
-#    test_bitstring_classes()
 #    a = '0b001111111' # 127
 #    b = bin(1)
 #    c = bin(-12)
-#    d = '010000001' # 129
+#    d = '-010000001' # -129
 #    A = SignedBitString(9, a)
 #    B = SignedBitString(9, b)
 #    C = SignedBitString(9, c)
@@ -433,4 +433,16 @@ if __name__ == '__main__':
 #    print(int(A+C))
 #    print(int(A+D))
 #    print(int(A-D))
+#    a = '11000110'
+#    b = '11101001000'
+#    A = UnsignedBitString(11, a)
+#    B = UnsignedBitString(11, b)
+#    print(A+B)
+#    print(A>>0)
+#    a=  '11001001'
+#    b=  '11000110'
+#    c = '1111101'
+#    d = '1111100'
+#    A = UnsignedBitString(11, a)
+#    B = UnsignedBitString(11, b)
     pass

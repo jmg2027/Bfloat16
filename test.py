@@ -102,8 +102,8 @@ def mul_test():
 def add_test_set(num1, num2):
     a = bf16.float_to_bf16(num1)
     b = bf16.float_to_bf16(num2)
-    print(a)
-    print(b)
+#    print(a)
+#    print(b)
     print(a+b)
     tfa = tf.cast(num1, tf.bfloat16)
     tfb = tf.cast(num2, tf.bfloat16)
@@ -112,25 +112,53 @@ def add_test_set(num1, num2):
 
 def add_test():
     add_test_set(2, 12)
-#    add_test_set(-2, 12)
-#    add_test_set(2, -12)
-#    add_test_set(-2, -12)
-#    add_test_set(123.124, 381.58)
-#    add_test_set(123.124, -381.58)
-#    add_test_set(-123.124, 381.58)
-#    add_test_set(-123.124, -381.58)
-#    add_test_set(0.00076, 0.3256)
-#    add_test_set(-0.00076, 0.3256)
-#    add_test_set(0.00076, -0.3256)
-#    add_test_set(-0.00076, -0.3256)
-#    add_test_set(111111111111111111, 99999999999999999999999999999999999999)
-    # TBD
-#    add_test_set(0, 0)
+    add_test_set(-2, 12)
+    add_test_set(2, -12)
+    add_test_set(-2, -12)
+    add_test_set(25.0924, 24.8076)
+    add_test_set(-25.0924, 24.8076)
+    add_test_set(25.0924, -24.8076)
+    add_test_set(-25.0924, -24.8076)
+    add_test_set(123.124, 381.58)
+    add_test_set(123.124, -381.58)
+    add_test_set(-123.124, 381.58)
+    add_test_set(-123.124, -381.58)
+    add_test_set(0.00076, 0.3256)
+    add_test_set(-0.00076, 0.3256)
+    add_test_set(0.00076, -0.3256)
+    add_test_set(-0.00076, -0.3256)
+    add_test_set(111111111.111111111, 999999999999.999999999999)
+    # Corner cases
+    add_test_set(0, 0)
+    add_test_set(10.10293, -0.0000000000000000000000000000000000000001)
+    add_test_set(10.10293, 0.0000000000000000000000000000000000000001)
+   # 100931731456
+   # 1000727379968
+    add_test_set(101029300000, 999999999999)
+    add_test_set(101029300000, -999999999999)
+    return
+
+def fma_test_set(num1, num2, num3):
+    a = bf16.float_to_bf16(num1)
+    b = bf16.float_to_bf16(num2)
+    c = bf16.float_to_bf16(num3)
+#    print(a)
+#    print(b)
+    print(bf16.fma(a,b,c))
+    tfa = tf.cast(num1, tf.bfloat16)
+    tfb = tf.cast(num2, tf.bfloat16)
+    tfc = tf.cast(num3, tf.bfloat16)
+    print(tfa * tfb + tfc)
+    return
+
+def fma_test():
+    fma_test_set(1.0, 2.0, 3.0)
     return
 
 if __name__ == "__main__":
 #    power_test()
 #    neg_test()
 #    mul_test()
-    add_test()
+#    add_test()
+    fma_test()
     pass

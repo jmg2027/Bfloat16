@@ -116,7 +116,7 @@ def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7, sticky_bit_width = 
     if guard_bit == 0:
         rounded_number = truncated_number
     else:
-        if round_bit == 0:
+        if round_bit == 1:
             rounded_number = truncated_number + 1
         else:
             if sticky_bit != 0:
