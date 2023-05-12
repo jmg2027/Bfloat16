@@ -102,12 +102,13 @@ def mul_test():
 def add_test_set(num1, num2):
     a = bf16.float_to_bf16(num1)
     b = bf16.float_to_bf16(num2)
-#    print(a)
-#    print(b)
-    print(a+b)
     tfa = tf.cast(num1, tf.bfloat16)
     tfb = tf.cast(num2, tf.bfloat16)
-    print(tfa + tfb)
+    bf16_res = a + b
+    tf_res = tfa + tfb
+    print(bf16_res)
+    print(tf_res)
+    print(bf16_res - tf_res)
     return
 
 def add_test():
@@ -159,6 +160,6 @@ if __name__ == "__main__":
 #    power_test()
 #    neg_test()
 #    mul_test()
-#    add_test()
-    fma_test()
+    add_test()
+#    fma_test()
     pass
