@@ -1,0 +1,63 @@
+import bf16.bf16 as bf16
+
+# Mul & Reduce Unit
+# AIP architecture (hyunpil.kim@samsung.com)
+# FMUL -> reg -> ALIGN SHIFT -> ADDER TREE -> POST ADDER & FACC
+# 32BIT FLOAT ACC = ACCUM(8 BF16 INPUT, 8 BF16 WEIGHT)
+# ACC + reduce_sum(BF16 A, BF16 B)
+'''
+FMUL
+Floating point multiplyer
+sign: 8 sign bits are xored
+exp: 9 exps, including previous ACC result goes in max tree
+8 sum of exps (mul_exp)
+mant:
+8 mans multiplies, h m m m m m m m 0 0 0 (11bits)
+mant is signed
+mul res: 22bits
+With sign bit, previous ACC is being negated or not
+'''
+'''
+Align shifter
+Tree architecture
+SQNR difference
+"it is more accurate than result of just two floating point addition due to non-rounding tree addition"
+"over 16bit align shifter is enough to cover range of FP16 and BF16. But, we used 32bit align shifter because of single precision accumulation and sharing with integer adder tree"
+Align bit width should be variable
+"floating point adder tree with 32bit align shifter always shows more accurate than results of single precision floating point (FP32) FMAC"
+diff(max_exp, mul_exp) -> shift amount for each mul_exp
+shift mul_mants with 8 signs (arithmetic shift right)
+XXX.X_XXXX_XXXX_XXXX_XXXX_XXXX_XXXX_XXXX
+shift previous ACC result with max_exp - acc_exp
+res: 9 aligned mants
+'''
+'''
+Adder tree
+Aligned inputs
+"32bit aligned values from align shift block are separated into msb and lsb part"
+"The results of msb and the most significant 4 bits of lsb part will be sumed in the floating point post adder block"
+20bits of msb_out, lsb_out
+'''
+'''
+Post adder float
+post add and fp accumulation
+"first adds two results from adder tree"
+tree_hap = 37bits? 40bits?
+	assign	msb_hap = $signed(msb_in + lsb_in[19:16]);
+msb of tree_hap is sign -> negate rest
+close path: "If there are similar size of inputs with same sign, the position of leading one is found within [35:31]. "
+far path: "if there are similar size of input with different sign, the position of leading one is found within [31:0]"
+unrounded result = 0000_1.XXX_XXXX_XXXX_XXXX_XXXX_XXXX_RSSS_SSSS
+'''
+
+class FloatSummation:
+    align_bitwidth = 32
+    def __init__(self, iterable):
+        self.elements = iterable
+
+    def set_align_bitwidth(self, n: int):
+        self.align_bitwidth = n
+
+    def summation(self):
+
+        return summation
