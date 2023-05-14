@@ -143,3 +143,4 @@ def round_and_postnormalize(exp: int, mant: int, n: int = 23, m: int = 7, sticky
     rnd_mant = round_to_nearest_even_mantissa(mant, n, m, sticky_bit_width)
     post_exp, post_mant = post_normalize_mantissa(exp, rnd_mant, m)
     return post_exp, post_mant
+
