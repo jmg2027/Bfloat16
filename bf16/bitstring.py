@@ -1,9 +1,9 @@
 import logging
+from typing import Tuple
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
-
 
 class BitString:
     """
@@ -136,6 +136,33 @@ class BitString:
         else:
             result = '0' + result
         return result
+
+    @classmethod
+    def carry_sum_add_binary(a: str, b: str, c: str) -> str:
+        sum = ''
+        carry = '0'
+        max_len = max(len(a), len(b), len(c))
+
+        for i in range(max_len - 1, -1, -1):
+            current_bit_a = int(a[i])
+            current_bit_b = int(b[i])
+            current_bit_c = int(c[i])
+
+            sum_bit = current_bit_a ^ current_bit_b ^ current_bit_c
+            carry_bit = (current_bit_a & current_bit_b) | (current_bit_b & current_bit_c) | (current_bit_c & current_bit_a)
+
+            sum = str(sum_bit) + sum
+            carry = str(carry_bit) + carry
+
+        return sum, carry
+
+    @classmethod
+    def carry_sum_add(cls, a: 'BitString', b: 'BitString', c: 'BitString') -> Tuple['BitString', 'BitString']:
+        sum_bin, carry_bin = __class__.carry_sum_add_binary(a.bin, b.bin, c.bin)
+        # extend sum bit
+        sum = __class__(len(carry_bin), sum_bin)
+        carry = __class__(len(carry_bin), carry_bin)
+        return sum, carry
 
     @classmethod
     def add_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
