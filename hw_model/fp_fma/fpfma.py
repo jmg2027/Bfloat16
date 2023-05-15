@@ -57,7 +57,12 @@ class FloatFMA:
         if isnormal:
             # a * b
             p_sign = a_sign ^ b_sign
-            p_exp_signed = a_exp_signed + b_exp_signed - bias_signed
+            # If product is zero
+            if self.a.iszero() or self.b.iszero():
+                p_exp_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, '0')
+            # Normal case
+            else:
+                p_exp_signed = a_exp_signed + b_exp_signed - bias_signed
             # mantissa: (1+7) * 2 bits
             p_mant_us = (a_mant_us * b_mant_us)
 
@@ -66,6 +71,34 @@ class FloatFMA:
             exp_diff = c_exp_signed - p_exp_signed
             exp_diff_abs = abs(int(exp_diff))
 
+            # Define precision bitwidth
+            precision_bit = bf16.Bfloat16.mantissa_bits + 1
+
+            # 2.8 Multiple Path Fused Multiplier-Adder
+            # ref) http://i.stanford.edu/pub/cstr/reports/csl/tr/96/711/CSL-TR-96-711.pdf
+            """
+             By swapping the operands such that the smaller operand is always
+            subtracted from the larger operand, the conversion in step 4 is eliminated in all
+            cases except for equal exponents.
+            In the case of equal exponents, it is possible
+            that the result of step 3 may be negative.
+            the conversion addition in step 4 and the rounding addition in step 7 become mutually exclusive
+            by appropriately swapping the operands.
+            In the case of effective addition, there is never any cancellation of the results.
+Accordingly, only one full-length shift, an initial aligning shift, can ever be
+needed.
+For subtraction, when the
+exponent difference d > 1, a full-length aligning shift may be needed.
+ However, the result never requires more than a 1 bit left shift.
+ Similarly if d <= 1, no full-length aligning shift is necessary, but a full-length normalizing shift may be
+required in the case of subtraction.
+ In this case, the 1 bit aligning shift and the conditional swap can be predicted from the low-order two bits of the exponents,
+reducing the latency of this path.
+CLOSE
+for d <= 1, and FAR for d > 1
+predict the number of leading zeros in the result directly from the input operands
+            """
+            
             # Set flags
             c_exp_gt_p = exp_diff > bf16.sbit(1, '0')
             c_exp_eq_p = exp_diff == bf16.sbit(1, '0')
@@ -89,11 +122,23 @@ class FloatFMA:
             else:
                 mant_unshift = c_mant_us.concat(bf16.ubit(3, '0'))
                 mant_shift_in = p_mant_us.concat(bf16.ubit(2, '0'))
+
+            # This machine assumes no denormalized number (All subnormal num = zero)
+            # Addend anchor
+            # All product bits are sticky
+            # C1.xxx_xxxx_GRS | 1x.xx_xxxx_xxxx_xxxx
+            # < 1+h+m+3 = p+4 >
+            # <            1+p+3+2p                >
+            addend_anchor_case = int(exp_diff) >= precision_bit + 3
+            # Product anchor
+            # All addend bits are sticky
+            # C1x.xx_xxxx_xxxx_xxxx_GRS | 1.xxx_xxxx
+            # <   1+(h+m)*2+3 = 2p+4    >
+            # <              1+2p+3+p              >
+            product_anchor_case = int(exp_diff) <= -(2 * precision_bit + 2)
+
             
-            # Sticky bit:
-            # if exp_diff is larger than mantissa bits + hidden bit + GRS then all shift mantissa is sticky
-            # else sticky is exp_diff - 3 ~ 0
-            if exp_diff_abs >= bf16.Bfloat16.mantissa_bits + 1 + 3:
+            if addend_anchor_case or product_anchor_case:
                 mant_sticky = mant_shift_in.reduceor()
             else:
                 mant_sticky = (mant_shift_in << (bf16.Bfloat16.mantissa_bits + 1 + 3 - exp_diff_abs)).reduceor()
