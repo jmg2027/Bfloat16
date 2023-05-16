@@ -51,13 +51,46 @@ unrounded result = 0000_1.XXX_XXXX_XXXX_XXXX_XXXX_XXXX_RSSS_SSSS
 '''
 
 class FloatSummation:
+    '''
+    8 BF16 vectors (assumes list input)
+    '''
+    
     align_bitwidth = 32
     def __init__(self, iterable):
-        self.elements = iterable
+        self.vector_elements = iterable
 
     def set_align_bitwidth(self, n: int):
         self.align_bitwidth = n
 
     def summation(self):
+        acc = bf16.Bfloat16(0, 0, 0)
+        # This is for test
+        self.vector_elements = [
+            bf16.Bfloat16.float_to_bf16(1.0),
+            bf16.Bfloat16.float_to_bf16(-1.2),
+            bf16.Bfloat16.float_to_bf16(4.0),
+            bf16.Bfloat16.float_to_bf16(5.0),
+            bf16.Bfloat16.float_to_bf16(-10.0),
+            bf16.Bfloat16.float_to_bf16(-20.0),
+            bf16.Bfloat16.float_to_bf16(30.0),
+            bf16.Bfloat16.float_to_bf16(-100.0)
+            ]
+        # Extract vectors
+        # Decompose elements
+#        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))
+#        sign_v, exp_v, mant_v = zip(*decompsed_vector)
+        sign_v, exp_v, mant_v = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.vector_elements))))
+        print(sign_v)
+        print(exp_v)
+        print(mant_v)
 
+        # FMUL
+
+        # Align shifter
+
+        # Adder tree
+
+        #Post adder & accumulation
+
+        summation = bf16.Bfloat16.compose_bf16(0, 0, 0)
         return summation
