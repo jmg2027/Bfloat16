@@ -156,10 +156,15 @@ def fma_test():
     fma_test_set(1.0, 2.0, 3.0)
     return
 
+def sum_test():
+    print(bf16.summation([]))
+    return
+
 if __name__ == "__main__":
 #    power_test()
 #    neg_test()
 #    mul_test()
-    add_test()
+#    add_test()
 #    fma_test()
+    sum_test()
     pass
