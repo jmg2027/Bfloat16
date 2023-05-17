@@ -44,7 +44,7 @@ class Bfloat16:
     exponent_bits = 8
     mantissa_bits = 7
     bias = (1 << (exponent_bits - 1)) - 1
-    exp_max = (1 << exponent_bits) - 1
+    exp_max = (1 << (exponent_bits-1)) - 1
     mant_max = (1 << mantissa_bits) - 1
 
     def __init__(self, sign: int = 0, exponent: int = exp_max, mantissa: int = mant_max) -> None:

@@ -341,7 +341,7 @@ class BitString:
         return bin(inverted_int)[2:]
 
     def __repr__(self):
-        return f'bit: {self.bin}'
+        return f'bit: {self.bin}, bitwidth: {self.bitwidth}'
     
     def __str__(self):
         return self.bin

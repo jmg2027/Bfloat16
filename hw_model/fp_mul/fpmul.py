@@ -67,7 +67,7 @@ class FloatMultiplication:
                 # rounding
                 # mant[15:8]
                 ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
-            # mant[15] == 1
+            # mant[15] == 0
             else:
                 ret_exp_1 = ret_exp_0
                 # mant[14:0]

@@ -63,6 +63,9 @@ def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int, sticky_width =
     return rounded_bit
 
 def leading_zero_count(bit: 'bf16.ubit') -> int:
+    # If there's no 1 in bit, return zero indicator
+    if '1' not in bit.bin:
+        return -200
     return (bit.bin+'1').index('1')
 
 
