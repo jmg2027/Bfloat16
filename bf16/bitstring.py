@@ -281,6 +281,10 @@ class BitString:
         # string [:-0] returns '', so - slicing should not be used
         return self.__class__(self.bitwidth, '0' * n + self.bin[0:self.bitwidth-n])
 
+    def arith_rshift(self, n: int):
+        # string [:-0] returns '', so - slicing should not be used
+        return self.__class__(self.bitwidth, self.bin[0] * n + self.bin[0:self.bitwidth-n])
+
     def __ilshift__(self, n: int):
         return self.set_bin(self.bin[n:] + '0' * n)
 
@@ -341,7 +345,7 @@ class BitString:
         return bin(inverted_int)[2:]
 
     def __repr__(self):
-        return f'bit: {self.bin}, bitwidth: {self.bitwidth}'
+        return f'[{self.bitwidth-1}:0] {self.bin}'
     
     def __str__(self):
         return self.bin
