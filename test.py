@@ -194,7 +194,8 @@ def rand_add_test(times: int):
     return
 
 def sum_test():
-    print(bf16.summation([]))
+    bf16.summation([])
+#    print(bf16.summation([]))
     return
 
 def random_bf16():
@@ -212,7 +213,7 @@ if __name__ == "__main__":
 #    neg_test()
 #    mul_test()
 #    add_test()
-    fma_test()
+#    fma_test()
 #    a = bf16.float_to_bf16(2.0)
 #    b = bf16.float_to_bf16(-2.0)
 #    a = bf16.float_to_bf16(-2.0)
@@ -221,6 +222,6 @@ if __name__ == "__main__":
 #    b = bf16.float_to_bf16(4.0)
 #    c = bf16.float_to_bf16(3.0)
 #    print(a+b)
-#    sum_test()
+    sum_test()
 #    rand_add_test(10)
     pass
