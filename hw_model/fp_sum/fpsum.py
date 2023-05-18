@@ -53,13 +53,14 @@ unrounded result = 0000_1.XXX_XXXX_XXXX_XXXX_XXXX_XXXX_RSSS_SSSS
 class FloatSummation:
     '''
     8 BF16 vectors (assumes list input)
+    16 bits accumulator
     '''
     
     align_bitwidth = 32
     def __init__(self, iterable):
         self.input_vector = iterable
         self.weight_vector = iterable
-        self.acc = bf16.Bfloat16(0, 0, 0)
+#        self.acc = bf16.Bfloat16(0, 0, 0)
         # This is for test
         self.input_vector = [
             bf16.Bfloat16.float_to_bf16(1.0),
@@ -72,36 +73,151 @@ class FloatSummation:
             bf16.Bfloat16.float_to_bf16(-100.0)
             ]
         self.weight_vector = [
-            bf16.Bfloat16.float_to_bf16(1.0),
-            bf16.Bfloat16.float_to_bf16(-1.2),
-            bf16.Bfloat16.float_to_bf16(4.0),
-            bf16.Bfloat16.float_to_bf16(5.0),
-            bf16.Bfloat16.float_to_bf16(-10.0),
+            bf16.Bfloat16.float_to_bf16(2.0),
+            bf16.Bfloat16.float_to_bf16(-4.2),
+            bf16.Bfloat16.float_to_bf16(7.0),
+            bf16.Bfloat16.float_to_bf16(-9.0),
+            bf16.Bfloat16.float_to_bf16(10.0),
             bf16.Bfloat16.float_to_bf16(-20.0),
-            bf16.Bfloat16.float_to_bf16(30.0),
-            bf16.Bfloat16.float_to_bf16(-100.0)
+            bf16.Bfloat16.float_to_bf16(30.567),
+            bf16.Bfloat16.float_to_bf16(-400.6)
             ]
 
     def set_align_bitwidth(self, n: int):
         self.align_bitwidth = n
 
     def summation(self):
+        self.acc = bf16.Bfloat16(1, 1, 80)
         # Extract vectors
         # Decompose elements
 #        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))
 #        sign_v, exp_v, mant_v = zip(*decompsed_vector)
         sign_i, exp_i, mant_i = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.input_vector))))
         sign_w, exp_w, mant_w = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.weight_vector))))
+        sign_acc, exp_acc, mant_nohidden_acc = self.acc.decompose_bf16()
+        exp_acc_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{exp_acc.bin}')
+        # Treat acc as fp32 in module -> mantissa to 24bits
+        mant_acc_us = bf16.ubit(24, f'1{mant_nohidden_acc.bin}{16*"0"}')
 
-        # 
+        # Process elements
+        # Exponent to signed bitstring
+        exp_i_signed = []
+        for i in exp_i:
+            exp_i_signed.append(bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{i}'))
+        exp_w_signed = []
+        for i in exp_w:
+            exp_w_signed.append(bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{i}'))
+        bias_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin(bf16.Bfloat16.bias))
+        
+#        print('exp_i_signed', exp_i_signed)
+#        print('exp_w_signed', exp_w_signed)
+        # Adjust hidden bit to mantissa
+        # Adjust 3 zero bits
+        mant_i_us = []
+        for i in mant_i:
+            mant_i_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}000'))
+        mant_w_us = []
+        for i in mant_w:
+            mant_w_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}000'))
+        
+#        print('mant_i_us', mant_i_us)
+#        print('mant_w_us', mant_w_us)
+
+        # Normal case
 
         # FMUL
+        # Calculate sign bit
+        o_sign = []
+        for i in range(len(sign_i)):
+            o_sign.append(sign_i[i] ^ sign_w[i])
+        # Calculate exponent
+        w_exp_mul = []
+        for i in range(len(exp_i_signed)):
+            w_exp_mul.append(exp_i_signed[i] + exp_w_signed[i] - bias_signed)
+        # append for acc
+        w_exp_mul.append(exp_acc_signed)
+        o_exp_mul = w_exp_mul
+
+        #Max tree
+        l0_exp_max = [0,0,0,0]
+        l0_exp_max[0] = w_exp_mul[0] if w_exp_mul[0] > w_exp_mul[1] else w_exp_mul[1]
+        l0_exp_max[1] = w_exp_mul[2] if w_exp_mul[2] > w_exp_mul[3] else w_exp_mul[3]
+        l0_exp_max[2] = w_exp_mul[4] if w_exp_mul[4] > w_exp_mul[5] else w_exp_mul[5]
+        l0_exp_max[3] = w_exp_mul[6] if w_exp_mul[6] > w_exp_mul[7] else w_exp_mul[7]
+
+        l1_exp_max = [0,0]
+        l1_exp_max[0] = l0_exp_max[0] if l0_exp_max[0] > l0_exp_max[1] else l0_exp_max[1]
+        l1_exp_max[1] = l0_exp_max[2] if l0_exp_max[2] > l0_exp_max[3] else l0_exp_max[3]
+
+        l2_exp_max = l1_exp_max[0] if l1_exp_max[0] > l1_exp_max[1] else l1_exp_max[1]
+
+        l3_exp_max = l2_exp_max if l2_exp_max > o_exp_mul[8] else o_exp_mul
+        o_max_exp = l3_exp_max
+
+        #mantissa multiplication
+        o_mul_mant = []
+        for i in range(len(mant_i_us)):
+            o_mul_mant.append(mant_i_us[i] * mant_w_us[i])
+#        print(o_mul_mant)
+        #negate acc mantissa if signed
+        add_mant_unsigned = bf16.sbit(25, f'0{mant_acc_us}')
+        o_add_mant = -add_mant_unsigned if sign_acc == bf16.bit(1, '1') else add_mant_unsigned
 
         # Align shifter
+        shamt = []
+        for i in range(len(o_exp_mul)):
+            shamt.append(int(o_max_exp - o_exp_mul[i]))
+        # t_mant_mul = [31:0]
+        w_mant_mul = []
+        for i in range(len(o_sign)):
+            t_mant_mul = bf16.sbit(32, f'0{o_mul_mant[i]}{9*"0"}')
+            if o_sign[i] == bf16.bit(1, '1'):
+                w_mant_mul.append(-t_mant_mul)
+            else:
+                w_mant_mul.append(t_mant_mul)
+        # accumulator
+        w_mant_mul.append(bf16.sbit(32, f'{o_add_mant[24]}{o_add_mant}{6*"0"}'))
+
+        # mantissa shift
+        o_aligned = []
+        for i in range(len(w_mant_mul)):
+            t_aligned = w_mant_mul[i].arith_rshift(shamt[i])
+            o_aligned.append(t_aligned)
 
         # Adder tree
+        # divide into lsb, msb
+        w_aligned_lsb = []
+        for i in range(len(o_aligned)):
+            w_aligned_lsb.append(bf16.bit(20, f'{4*"0"}{o_aligned[i][15:0]}'))
+        w_aligned_msb = []
+        for i in range(len(o_aligned)):
+            w_aligned_msb.append(bf16.bit(20, f'{4*"0"}{o_aligned[i][31:16]}'))
+        
+        o_lsb_out = w_aligned_lsb[0] + \
+                    w_aligned_lsb[1] + \
+                    w_aligned_lsb[2] + \
+                    w_aligned_lsb[3] + \
+                    w_aligned_lsb[4] + \
+                    w_aligned_lsb[5] + \
+                    w_aligned_lsb[6] + \
+                    w_aligned_lsb[7] + \
+                    w_aligned_lsb[8]
+
+        o_msb_out = w_aligned_msb[0] + \
+                    w_aligned_msb[1] + \
+                    w_aligned_msb[2] + \
+                    w_aligned_msb[3] + \
+                    w_aligned_msb[4] + \
+                    w_aligned_msb[5] + \
+                    w_aligned_msb[6] + \
+                    w_aligned_msb[7] + \
+                    w_aligned_msb[8]
+
+        print(repr(o_lsb_out))
+        print(repr(o_msb_out))
 
         #Post adder & accumulation
 
-        summation = bf16.Bfloat16.compose_bf16(0, 0, 0)
-        return summation
+#        summation = bf16.Bfloat16.compose_bf16(0, 0, 0)
+        pass
+#        return summation
