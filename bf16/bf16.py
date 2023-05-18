@@ -70,7 +70,7 @@ class Bfloat16:
         return mantissa
     
     def isnan(self) -> bool:
-        return self.exponent == self.exp_max - self.bias and self.mantissa != 0
+        return self.exponent == self.exp_max and self.mantissa != 0
     
     def isden(self) -> bool:
         return self.exponent == 0 - self.bias and self.mantissa != 0
@@ -81,10 +81,10 @@ class Bfloat16:
         return self.exponent == 0 - self.bias
     
     def isinf(self) -> bool:
-        return self.exponent == self.exp_max - self.bias and self.mantissa == 0
+        return self.exponent == self.exp_max and self.mantissa == 0
     
     def isoverflow(self) -> bool:
-        flag = self.exponent > self.exp_max - self.bias
+        flag = self.exponent > self.exp_max
         if flag:
             raise ValueError(f"Bfloat16 instance overflow occured")
         return flag
