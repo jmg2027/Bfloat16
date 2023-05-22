@@ -28,27 +28,27 @@ class FloatFMA:
         # nan inputs clearance
         if self.a.isnan() or self.b.isnan() or self.c.isnan():
             ret_sign_0 = a_sign ^ b_sign ^ c_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # (inf * 0) + ? -> nan
         elif (self.a.isinf() and self.b.iszero()) or (self.b.isinf() and self.a.iszero()):
             ret_sign_0 = a_sign ^ b_sign ^ c_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # (inf * ?) + -inf, (-inf * ?) + inf -> nan
         elif (self.a.isinf() or self.b.isinf()) and self.c.isinf() and (a_sign ^ b_sign ^ c_sign):
             ret_sign_0 = a_sign ^ b_sign ^ c_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # (inf * ?) + ? -> inf, (-inf * ?) + ? -> -inf
         elif (self.a.isinf() or self.b.isinf()):
             ret_sign_0 = a_sign ^ b_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # (? * ?) + inf -> inf, (? * ?) - inf -> inf
         elif self.c.isinf():
             ret_sign_0 = c_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         else:
             isnormal = True
@@ -254,13 +254,15 @@ class FloatFMA:
             ret_mant_4 = ret_mant_3[bf16.Bfloat16.mantissa_bits - 1:0]
             
             # Overflow case: make inf
-            if ret_exp_2 > bf16.sbit(ret_exp_2.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin((1 << self.a.exponent_bits) - 1))
-                ret_mant_3 = 0
+            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits , bin((1 << self.a.exponent_bits) - 1)):
+                print('inf')
+                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
+                ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
             # Underflow case: make zero
-            elif ret_exp_2 < bf16.sbit(ret_exp_2.bitwidth + 2, bin(0)):
+            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits, bin(0)):
+                print('zero')
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
-                ret_mant_3 = 0
+                ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
 
             # remove hidden bit
             ret_mant_4 = ret_mant_3[bf16.Bfloat16.mantissa_bits - 1:0]
