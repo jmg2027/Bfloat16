@@ -44,7 +44,7 @@ class Bfloat16:
     exponent_bits = 8
     mantissa_bits = 7
     bias = (1 << (exponent_bits - 1)) - 1
-    exp_max = (1 << (exponent_bits-1)) - 1
+    exp_max = (1 << (exponent_bits - 1))
     mant_max = (1 << mantissa_bits) - 1
 
     def __init__(self, sign: int = 0, exponent: int = exp_max, mantissa: int = mant_max) -> None:
@@ -61,7 +61,7 @@ class Bfloat16:
 
     def set_exponent(self, exponent: int) -> None:
         if not 0 <= exponent + self.bias < (1 << self.exponent_bits):
-            raise ValueError(f"Bfloat16 exponent value must be in range of -128 ~ 127")
+            raise ValueError(f"Bfloat16 exponent value must be in range of -127 ~ 128")
         return exponent
 
     def set_mantissa(self, mantissa: int) -> None:
@@ -200,18 +200,15 @@ class Bfloat16:
         float =  self.bf16_to_float()
         return float
     
-    def _flag(self):
-        if self.isnan():
-            return ' NaN'
-        elif self.isinf():
-            return ' Inf'
-        elif self.iszero():
-            return ' Zero'
-        else:
-            return ''
-
     def __repr__(self):
-        return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa}{self._flag()})"
+        if self.isnan():
+            return f"Bfloat16(Nan, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
+        elif self.isinf():
+            return f"Bfloat16(Inf, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
+        elif self.iszero():
+            return f"Bfloat16(Zero, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
+        else:
+            return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
 
 
 class Bfloat16Error(Exception):
