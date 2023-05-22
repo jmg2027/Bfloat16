@@ -23,28 +23,28 @@ class FloatAddition:
         # nan inputs clearance
         if self.a.isnan() or self.b.isnan():
             ret_sign_0 = a_sign ^ b_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # inf + inf = inf
         # -inf + -inf = -inf
         elif (self.a.isinf() and self.b.isinf() and (self.a.sign == self.b.sign)):
             ret_sign_0 = a_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # -inf + +inf = nan
         elif (self.a.isinf() and self.b.isinf() and (self.a.sign != self.b.sign)):
             ret_sign_0 = a_sign ^ b_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # inf + not inf = inf
         # -inf + not inf = -inf
         elif self.a.isinf():
             ret_sign_0 = a_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         elif self.b.isinf():
             ret_sign_0 = b_sign
-            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max))
+            ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # zero + x = x
         elif self.a.iszero():
@@ -149,7 +149,7 @@ class FloatAddition:
             # Not to discard carry
             mant_add = bf16.ubit.add_bitstring(mant_add_in_a, mant_add_in_b)
             ret_mant_0 = bf16.ubit(bf16.Bfloat16.mantissa_bits + 5, mant_add.bin)
-            #print('sum', repr(ret_mant_0))
+            #print('sum', repr(mant_add))
 
             # Normalize with LZA shift amount when Sub
             # apply lza later
@@ -168,7 +168,6 @@ class FloatAddition:
             # Sub: in case of 00.0...0xx shift amount = lzc + 1
             if subtract_mant == bf16.bit(1, '1'):
                 shift_amt = bf16.hwutil.leading_zero_count(ret_mant_0[ret_mant_0.bitwidth-2:0]) 
-                print(shift_amt)
                 ret_mant_1 = ret_mant_0 << shift_amt
                 exp_adj = -shift_amt
             # Add, carry occured
@@ -180,15 +179,14 @@ class FloatAddition:
             else:
                 exp_adj = 0
                 ret_mant_1 = ret_mant_0
-            
-            #test
-#            ret_exp_0.set_bin('0')
-#            exp_adj = -1
 
-            ret_exp_1 = ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2, bin(exp_adj))
-#            print(ret_exp_0)
-#            print(bf16.sbit(ret_exp_0.bitwidth + 2, bin(exp_adj)))
-#            print(ret_exp_1)
+            exp_adj_bit = bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj))
+            print('exp_adj', exp_adj_bit)
+            print(repr(ret_exp_0))
+            print(repr(bf16.sbit(ret_exp_0.bitwidth + 3, bin(exp_adj))))
+            print(repr(ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2, bin(exp_adj))))
+            ret_exp_1 = bf16.sbit.add_bitstring(ret_exp_0, bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj)))
+            print('ret_exp_1', repr(ret_exp_1))
 
             # adjusted exponent: remove mantissa carry
             ret_mant_2 = ret_mant_1[ret_mant_0.bitwidth-2:0]
@@ -203,12 +201,16 @@ class FloatAddition:
                 ret_exp_2 = ret_exp_1
                 ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8, 1)
             
+            print('ret_exp_2', repr(ret_exp_2), int(ret_exp_2))
+            print('ret_exp_2[7:0]', repr(ret_exp_2[bf16.Bfloat16.exponent_bits - 1:0]), int(ret_exp_2))
             # Overflow case: make inf
-            if ret_exp_2 >= bf16.sbit(ret_exp_2.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin((1 << self.a.exponent_bits) - 1))
+            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits , bin((1 << self.a.exponent_bits) - 1)):
+                print('inf')
+                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
             # Underflow case: make zero
-            elif ret_exp_2 <= bf16.sbit(ret_exp_2.bitwidth + 2, bin(0)):
+            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits, bin(0)):
+                print('zero')
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
 
@@ -221,6 +223,7 @@ class FloatAddition:
             
         # Remove sign bit from exponent
         ret_exp_bit_2 = bf16.bit(bf16.Bfloat16.exponent_bits, ret_exp_2.bin)
+        print(ret_exp_bit_2)
 
         # Compose BF16
         add = bf16.Bfloat16.compose_bf16(ret_sign_0, ret_exp_bit_2, ret_mant_4)
