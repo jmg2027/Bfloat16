@@ -24,9 +24,13 @@ class BitString:
         self.set(bitwidth, value)
 
     def set_bitwidth(self, bitwidth: int):
+        if not isinstance(bitwidth, int):
+            raise TypeError("Bitstring bitwidth should be integer.")
         self.set(bitwidth, self.value)
     
     def set_bin(self, value: str):
+        if not isinstance(value, int):
+            raise TypeError("Bitstring value should be string.")
         self.set(self.bitwidth, value)
 
     def set(self, bitwidth: int, value: str) -> None:
@@ -476,4 +480,11 @@ if __name__ == '__main__':
 #    d = '1111100'
 #    A = UnsignedBitString(11, a)
 #    B = UnsignedBitString(11, b)
+    A = SignedBitString(9, '000000000')
+    B = SignedBitString(9, bin(-256))
+    A = SignedBitString(10, '010000000')
+    B = SignedBitString(10, bin(-256))
+    print(int(A))
+    print(A+B)
+    print(int(A+B))
     pass
