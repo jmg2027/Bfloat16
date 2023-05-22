@@ -85,13 +85,22 @@ class FloatAddition:
             # mant_unshift = [7+3:0] -> grs
             # mant_shift = [7+3:0] -> grs
             # mant_shift_in = [7+2:0] -> grs, sticky bit will concat later
-            
+            # Shift mantissa of lesser exponent
             if a_exp_gt_b:
                 mant_unshift = a_mant_us.concat(bf16.ubit(3, '0'))
                 mant_shift_in = b_mant_us.concat(bf16.ubit(2, '0'))
+            elif a_exp_eq_b:
+                # In case of equal exponent, shift lesser mantissa
+                if a_mant_gt_b:
+                    mant_unshift = a_mant_us.concat(bf16.ubit(3, '0'))
+                    mant_shift_in = b_mant_us.concat(bf16.ubit(2, '0'))
+                else:
+                    mant_unshift = b_mant_us.concat(bf16.ubit(3, '0'))
+                    mant_shift_in = a_mant_us.concat(bf16.ubit(2, '0'))
             else:
                 mant_unshift = b_mant_us.concat(bf16.ubit(3, '0'))
                 mant_shift_in = a_mant_us.concat(bf16.ubit(2, '0'))
+            
             
             # Sticky bit:
             # if exp_diff is larger than mantissa bits + hidden bit + GR then all shift mantissa is stick
@@ -103,53 +112,36 @@ class FloatAddition:
             
             mant_shift = (mant_shift_in >> exp_diff_abs).concat(mant_sticky)
 
-            # Add/Sub Shifted mantissa /w LZA
-            # Invert flag: mantissa of lesser exponent for Sub
-            mant_inv_a = False
-            mant_inv_b = False
-            if subtract_mant == bf16.bit(1, '1'):
-                if a_exp_gt_b:
-                    mant_inv_b = True
-                # With equal exponent, invert lesser mantissa
-                elif a_exp_eq_b:
-                    if a_mant_gt_b:
-                        mant_inv_b = True
-                    else:
-                        mant_inv_a = True
-                else:
-                    mant_inv_a = True
-            else:
-                mant_inv_a = False
-                mant_inv_b = False
+            # Invert flag: mantissa of lesser exponent -> shifted mantissa
             
             # Invert mantissa
             # mant_unshift with grs= [7+3:0] 
             # mant_shift with grs= [7+3:0]
-            if mant_inv_a:
+            if subtract_mant == bf16.bit(1, '1'):
                 mant_add_in_a = -mant_shift
                 mant_add_in_b = mant_unshift
-            elif mant_inv_b:
-                mant_add_in_a = mant_shift
-                mant_add_in_b = -mant_unshift
             else:
                 mant_add_in_a = mant_shift
                 mant_add_in_b = mant_unshift
             #print('exp_a: ', int(a_exp))
             #print('exp_b: ', int(b_exp))
+            #print('mant_shift_in', repr(mant_shift_in))
+            #print('mant_shift', repr(mant_shift))
             #print('mant_a: ', a_mant_us)
             #print('mant_b: ', b_mant_us)
-            #print('a>b', a_exp_gt_b)
-            #print('inv a', mant_inv_a)
             #print(repr(mant_shift))
             #print(repr(mant_unshift))
-            #print('mant_a_shft: ', mant_add_in_a)
-            #print('mant_b_shft: ', mant_add_in_b)
+            #print('mant_shift: ', mant_add_in_a)
+            #print('mant_unshift: ', mant_add_in_b)
             # Add mantissa (Including sub)
             # mant_add[11:0] (Including carry)
             # Not to discard carry
+            #mant_add_before_carry = bf16.ubit.add_bitstring(mant_add_in_a, mant_add_in_b)
+            #mant_add = bf16.ubit.add_bitstring(mant_add_before_carry, mant_add_in_carry)
             mant_add = bf16.ubit.add_bitstring(mant_add_in_a, mant_add_in_b)
             ret_mant_0 = bf16.ubit(bf16.Bfloat16.mantissa_bits + 5, mant_add.bin)
             #print('sum', repr(mant_add))
+            #print('ret_mant_0', repr(ret_mant_0[ret_mant_0.bitwidth-2:0]))
 
             # Normalize with LZA shift amount when Sub
             # apply lza later
@@ -181,12 +173,7 @@ class FloatAddition:
                 ret_mant_1 = ret_mant_0
 
             exp_adj_bit = bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj))
-            print('exp_adj', exp_adj_bit)
-            print(repr(ret_exp_0))
-            print(repr(bf16.sbit(ret_exp_0.bitwidth + 3, bin(exp_adj))))
-            print(repr(ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2, bin(exp_adj))))
             ret_exp_1 = bf16.sbit.add_bitstring(ret_exp_0, bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj)))
-            print('ret_exp_1', repr(ret_exp_1))
 
             # adjusted exponent: remove mantissa carry
             ret_mant_2 = ret_mant_1[ret_mant_0.bitwidth-2:0]
@@ -201,16 +188,12 @@ class FloatAddition:
                 ret_exp_2 = ret_exp_1
                 ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8, 1)
             
-            print('ret_exp_2', repr(ret_exp_2), int(ret_exp_2))
-            print('ret_exp_2[7:0]', repr(ret_exp_2[bf16.Bfloat16.exponent_bits - 1:0]), int(ret_exp_2))
             # Overflow case: make inf
-            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits , bin((1 << self.a.exponent_bits) - 1)):
-                print('inf')
+            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
             # Underflow case: make zero
-            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits, bin(0)):
-                print('zero')
+            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits + 1, bin(0)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
 
@@ -223,7 +206,6 @@ class FloatAddition:
             
         # Remove sign bit from exponent
         ret_exp_bit_2 = bf16.bit(bf16.Bfloat16.exponent_bits, ret_exp_2.bin)
-        print(ret_exp_bit_2)
 
         # Compose BF16
         add = bf16.Bfloat16.compose_bf16(ret_sign_0, ret_exp_bit_2, ret_mant_4)

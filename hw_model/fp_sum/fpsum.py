@@ -57,38 +57,17 @@ class FloatSummation:
     '''
     
     align_bitwidth = 32
-    def __init__(self, iterable):
-        self.input_vector = iterable
-        self.weight_vector = iterable
+    def __init__(self, input_vector, weight_vector):
+        self.input_vector = input_vector
+        self.weight_vector = weight_vector
 #        self.acc = bf16.Bfloat16(0, -127, 0)
         # This is for test
-        self.input_vector = [
-            bf16.Bfloat16.float_to_bf16(1.0),
-            bf16.Bfloat16.float_to_bf16(-1.2),
-            bf16.Bfloat16.float_to_bf16(4.0),
-            bf16.Bfloat16.float_to_bf16(5.0),
-            bf16.Bfloat16.float_to_bf16(-10.0),
-            bf16.Bfloat16.float_to_bf16(-20.0),
-            bf16.Bfloat16.float_to_bf16(30.0),
-            bf16.Bfloat16.float_to_bf16(-100.0)
-            ]
-        self.weight_vector = [
-            bf16.Bfloat16.float_to_bf16(2.0),
-            bf16.Bfloat16.float_to_bf16(-4.2),
-            bf16.Bfloat16.float_to_bf16(7.0),
-            bf16.Bfloat16.float_to_bf16(-9.0),
-            bf16.Bfloat16.float_to_bf16(10.0),
-            bf16.Bfloat16.float_to_bf16(-20.0),
-            bf16.Bfloat16.float_to_bf16(30.567),
-            bf16.Bfloat16.float_to_bf16(-400.6)
-            ]
 
     def set_align_bitwidth(self, n: int):
         self.align_bitwidth = n
 
     def summation(self):
         self.acc = bf16.Bfloat16(0, -127, 0)
-        print(self.acc)
         # Extract vectors
         # Decompose elements
 #        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))

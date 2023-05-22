@@ -16,7 +16,7 @@ def check_float_equal(res1, res2):
         return False
 
 def random_bf16():
-    min_exp = - bf16.exp_max - 1
+    min_exp = - bf16.exp_max + 1
     max_exp = bf16.exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0

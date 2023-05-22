@@ -169,10 +169,14 @@ class Bfloat16:
         return fma.fma()
     
     @classmethod
-    def summation(cls, vector_elements):
-        #if not isinstance(a or b or c, Bfloat16):
-        #    raise TypeError("Three of operands should be Bfloat16 objects.")
-        summation = Summation(vector_elements)
+    def summation(cls, input_vector, weight_vector):
+        for v in input_vector:
+            if not isinstance(v, Bfloat16):
+                raise TypeError("All input vector operands should be Bfloat16 objects.")
+        for v in weight_vector:
+            if not isinstance(v, Bfloat16):
+                raise TypeError("All weight vector operands should be Bfloat16 objects.")
+        summation = Summation(input_vector, weight_vector)
         return summation.summation()
 
     # from_blahblah method
@@ -197,18 +201,18 @@ class Bfloat16:
 
     # Representation
     def __float__(self):
-        float =  self.bf16_to_float()
-        return float
+        if self.iszero():
+            float_repr = 0.0
+        elif self.isnan():
+            float_repr = float('nan')
+        elif self.isinf():
+            float_repr = float('inf')
+        else:
+            float_repr =  self.bf16_to_float()
+        return float_repr
     
     def __repr__(self):
-        if self.isnan():
-            return f"Bfloat16(Nan, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
-        elif self.isinf():
-            return f"Bfloat16(Inf, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
-        elif self.iszero():
-            return f"Bfloat16(Zero, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
-        else:
-            return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
+        return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
 
 
 class Bfloat16Error(Exception):

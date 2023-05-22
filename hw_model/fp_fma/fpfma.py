@@ -81,17 +81,19 @@ class FloatFMA:
                 p_mant_us.__ilshift__(1)
 
                 
-            print('c_exp_signed:',c_exp_signed)
-            print('c_exp_signed:',p_exp_signed)
+            #print('c_exp_signed:',c_exp_signed)
+            #print('c_exp_signed:',p_exp_signed)
             # Exponent difference
             exp_diff = c_exp_signed - p_exp_signed
             exp_diff_abs = abs(int(exp_diff))
 
             # Set flags
-            print('exp_diff', exp_diff)
+            #print('exp_diff', exp_diff)
             c_exp_gt_p = exp_diff > bf16.sbit(1, '0')
             c_exp_eq_p = exp_diff == bf16.sbit(1, '0')
-            c_mant_gt_p = c_mant_us >= p_mant_us
+            c_mant_gt_p = (c_mant_us.concat(bf16.bit(precision_bit, '0'))) >= p_mant_us
+            #print(c_mant_us)
+            #print(p_mant_us)
 
             # Prenormalized Exponent
             if c_exp_gt_p:
@@ -145,47 +147,29 @@ class FloatFMA:
                 if c_exp_gt_p:
                     mant_unshift = c_mant_us.concat(bf16.ubit(3 + precision_bit, '0'))
                     mant_shift_in = p_mant_us.concat(bf16.ubit(3, '0'))
+                elif c_exp_eq_p:
+                # In case of equal exponent, shift lesser mantissa
+                    mant_unshift = c_mant_us.concat(bf16.ubit(3 + precision_bit, '0'))
+                    mant_shift_in = p_mant_us.concat(bf16.ubit(3, '0'))
                 else:
                     mant_unshift = p_mant_us.concat(bf16.ubit(3, '0'))
                     mant_shift_in = c_mant_us.concat(bf16.ubit(precision_bit + 3, '0'))
                 mant_shift = mant_shift_in >> mant_shift_amt
 
-                # Add/Sub Shifted mantissa /w LZA
-                # Invert flag: mantissa of lesser exponent for Sub
-                mant_inv_c = False
-                mant_inv_p = False
-                if subtract_mant == bf16.bit(1, '1'):
-                    if c_exp_gt_p:
-                        mant_inv_p = True
-                    # With equal exponent, invert lesser mantissa
-                    elif c_exp_eq_p:
-                        if c_mant_gt_p:
-                            mant_inv_p = True
-                        else:
-                            mant_inv_c = True
-                    else:
-                        mant_inv_c = True
-                else:
-                    mant_inv_c = False
-                    mant_inv_p = False
-
                 # Invert mantissa
-                if mant_inv_c:
+                if subtract_mant == bf16.bit(1, '1'):
                     mant_add_in_c = -mant_shift
                     mant_add_in_p = mant_unshift
-                elif mant_inv_p:
-                    mant_add_in_c = mant_shift
-                    mant_add_in_p = -mant_unshift
                 else:
                     mant_add_in_c = mant_shift
                     mant_add_in_p = mant_unshift
 
-                print('c>p', c_exp_gt_p)
-                print('inv c', mant_inv_c)
-                print(repr(mant_shift))
-                print(repr(mant_unshift))
-                print('mant_c_shft: ', mant_add_in_c)
-                print('mant_p_shft: ', mant_add_in_p)
+                #print('c>p', c_exp_gt_p)
+                #print('inv c', mant_inv_c)
+                #print(repr(mant_shift))
+                #print(repr(mant_unshift))
+                #print('mant_c_shft: ', mant_add_in_c)
+                #print('mant_p_shft: ', mant_add_in_p)
 
                 # Add mantissa (Including sub)
                 # mant_add[1+2p+3:0] (Including carry)
@@ -194,7 +178,7 @@ class FloatFMA:
                 sum = bf16.ubit(2 * precision_bit + 4, mant_add.bin)
 
             ret_mant_0 = sum
-            print('fma_sum', repr(ret_mant_0))
+            #print('fma_sum', repr(ret_mant_0))
 
             # Normalize with LZA shift amount when Sub
             # apply lza later
@@ -240,27 +224,16 @@ class FloatFMA:
                 # round
                 ret_exp_2 = ret_exp_1
                 ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8, 1)
-            
-            # Overflow case: make inf
-            if ret_exp_2 > bf16.sbit(ret_exp_2.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin((1 << self.a.exponent_bits) - 1))
-                ret_mant_3 = 0
-            # Underflow case: make zero
-            elif ret_exp_2 < bf16.sbit(ret_exp_2.bitwidth + 2, bin(0)):
-                ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
-                ret_mant_3 = 0
 
             # remove hidden bit
             ret_mant_4 = ret_mant_3[bf16.Bfloat16.mantissa_bits - 1:0]
             
             # Overflow case: make inf
-            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits , bin((1 << self.a.exponent_bits) - 1)):
-                print('inf')
+            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
             # Underflow case: make zero
-            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits, bin(0)):
-                print('zero')
+            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits + 1, bin(0)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
 
@@ -269,6 +242,8 @@ class FloatFMA:
 
             ret_sign = ret_sign_0
             ret_exp_signed = ret_exp_2
+            # test
+            #ret_mant = ret_mant_4 + bf16.ubit(1, '1')
             ret_mant = ret_mant_4
         else:
             ret_sign = ret_sign_0

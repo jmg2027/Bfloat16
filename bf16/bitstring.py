@@ -29,7 +29,7 @@ class BitString:
         self.set(bitwidth, self.value)
     
     def set_bin(self, value: str):
-        if not isinstance(value, int):
+        if not isinstance(value, str):
             raise TypeError("Bitstring value should be string.")
         self.set(self.bitwidth, value)
 
@@ -162,16 +162,16 @@ class BitString:
 
     @classmethod
     def carry_sum_add(cls, a: 'BitString', b: 'BitString', c: 'BitString') -> Tuple['BitString', 'BitString']:
-        sum_bin, carry_bin = __class__.carry_sum_add_binary(a.bin, b.bin, c.bin)
+        sum_bin, carry_bin = cls.carry_sum_add_binary(a.bin, b.bin, c.bin)
         # extend sum bit
-        sum = __class__(len(carry_bin), sum_bin)
-        carry = __class__(len(carry_bin), carry_bin)
+        sum = cls(len(carry_bin), sum_bin)
+        carry = cls(len(carry_bin), carry_bin)
         return sum, carry
 
     @classmethod
     def add_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
-        result_bin = __class__.add_binary(bit1.bin, bit2.bin)
-        bitstring = __class__(len(result_bin), result_bin)
+        result_bin = cls.add_binary(bit1.bin, bit2.bin)
+        bitstring = cls(len(result_bin), result_bin)
         return bitstring
     
     @classmethod
@@ -184,7 +184,7 @@ class BitString:
                 partial_product = f'{bin1}{"0" * i}'
                 result = cls.add_binary(result, partial_product)
 
-        return __class__(len(bin1) + len(bin2), result)
+        return cls(len(bin1) + len(bin2), result)
 
     # Concatenation
     def concat(self, other: 'BitString') -> 'BitString':
@@ -279,9 +279,14 @@ class BitString:
 
     # Shift
     def __lshift__(self, n: int):
-        return self.__class__(self.bitwidth, self.bin[n:] + '0' * n)
+        if n > self.bitwidth:
+            return self.__class__(self.bitwidth, '0')
+        else:
+            return self.__class__(self.bitwidth, self.bin[n:] + '0' * n)
 
     def __rshift__(self, n: int):
+        if n > self.bitwidth:
+            return self.__class__(self.bitwidth, '0')
         # string [:-0] returns '', so - slicing should not be used
         return self.__class__(self.bitwidth, '0' * n + self.bin[0:self.bitwidth-n])
 
@@ -290,9 +295,14 @@ class BitString:
         return self.__class__(self.bitwidth, self.bin[0] * n + self.bin[0:self.bitwidth-n])
 
     def __ilshift__(self, n: int):
-        return self.set_bin(self.bin[n:] + '0' * n)
+        if n > self.bitwidth:
+            return self.set_bin('0' * self.bitwidth)
+        else:
+            return self.set_bin((self.bin[n:] + '0' * n))
 
     def __irshift__(self, n: int):
+        if n > self.bitwidth:
+            return self.set_bin('0' * self.bitwidth)
         return self.set_bin('0' * n + self.bin[0:self.bitwidth-n])
 
     def __add__(self, other: 'BitString') -> 'BitString':

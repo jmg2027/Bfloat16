@@ -8,6 +8,9 @@ test_set = [
 		(10000.0, 2.0, 3.0),
 		(1.0, 2.0, 30000.0),
 		(1000000000.0, 200.0, 3.0),
+# debug: bf16 mantissa is 1 less than tf.bfloat16
+# debug: 3000000000000000.0 mantissa in fp32 is 0101010_1000011110111111
+# debug: in this case, isn't it not to round up case? It seems tf round this up
 		(0.000000001, 0.11111112, 3000000000000000.0),
 		(-1.0, 2.0, 4.0),
 		(-1.0, 2.0, 3.0),

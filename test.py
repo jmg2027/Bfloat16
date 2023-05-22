@@ -23,6 +23,9 @@ def test_add():
 def test_fma():
     test.test_fma.test()
 
+def test_summation():
+    test.test_summation.test()
+
 def test_all():
     test_bf16_module()
     test_pow()
@@ -30,54 +33,30 @@ def test_all():
     test_mul()
     test_add()
     test_fma()
+    test_summation()
+
+def test_rand_add(times):
+    test.test_add.rand_add_test(times)
+    return
+
+def test_rand_fma(times):
+    test.test_fma.rand_fma_test(times)
+    return
+
+def test_rand_summation(times):
+    test.test_summation.rand_summation_test(times)
+    return
 
 def test_random_all():
     pass
 
-def sum_test():
-#    bf16.summation([])
-    print(bf16.summation([]))
-    input_vector = np.array([
-        1.0,
-        -1.2,
-        4.0,
-        5.0,
-        -10.0,
-        -20.0,
-        30.0,
-        -100.0,
-            ])
-    weight_vector = np.array([
-        2.0,
-        -4.2,
-        7.0,
-        -9.0,
-        10.0,
-        -20.0,
-        30.567,
-        -400.6,
-            ])
-    print(np.inner(input_vector, weight_vector))
-    return
-
 
 if __name__ == "__main__":
-#    power_test()
-#    neg_test()
-#    mul_test()
-#    add_test()
-#    fma_test()
-#    a = bf16.float_to_bf16(2.0)
-#    b = bf16.float_to_bf16(-2.0)
-#    a = bf16.float_to_bf16(-2.0)
-#    b = bf16.float_to_bf16(4.0)
-#    a = bf16.float_to_bf16(-2.0)
-#    b = bf16.float_to_bf16(4.0)
-#    c = bf16.float_to_bf16(3.0)
-#    print(a+b)
-#    sum_test()
-#    rand_add_test(10)
 #    test_mul()
-    test_add()
+#    test_add()
 #    test_fma()
+#    test_summation()
+    test_rand_add(10)
+    test_rand_fma(10)
+    test_rand_summation(10)
     pass
