@@ -60,7 +60,7 @@ class FloatSummation:
     def __init__(self, iterable):
         self.input_vector = iterable
         self.weight_vector = iterable
-#        self.acc = bf16.Bfloat16(0, 0, 0)
+#        self.acc = bf16.Bfloat16(0, -127, 0)
         # This is for test
         self.input_vector = [
             bf16.Bfloat16.float_to_bf16(1.0),
@@ -87,7 +87,8 @@ class FloatSummation:
         self.align_bitwidth = n
 
     def summation(self):
-        self.acc = bf16.Bfloat16(1, 1, 80)
+        self.acc = bf16.Bfloat16(0, -127, 0)
+        print(self.acc)
         # Extract vectors
         # Decompose elements
 #        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))
@@ -213,11 +214,64 @@ class FloatSummation:
                     w_aligned_msb[7] + \
                     w_aligned_msb[8]
 
-        print(repr(o_lsb_out))
-        print(repr(o_msb_out))
+        #print(repr(o_lsb_out))
+        #print(repr(o_msb_out))
 
         #Post adder & accumulation
+        msb_in = bf16.sbit(20, o_msb_out.bin)
+        lsb_in = bf16.sbit(20, o_lsb_out.bin)
+        msb_hap = bf16.sbit(21, f'{(msb_in + lsb_in[19:16]).bin}')
+        tree_hap = bf16.sbit(37, f'{msb_hap.bin}{lsb_in[15:0].bin}')
+        zero_hap = tree_hap == bf16.sbit(37, '0')
+        p_tree_hap = bf16.ubit(36, f'{(-tree_hap).bin if tree_hap[36].bin == 1 else tree_hap.bin}')
 
-#        summation = bf16.Bfloat16.compose_bf16(0, 0, 0)
-        pass
+        # Leading zero count for close path
+        if p_tree_hap[35].bin == 1:
+            rshamt = 4
+        elif p_tree_hap[34].bin == 1:
+            rshamt = 3
+        elif p_tree_hap[33].bin == 1:
+            rshamt = 2
+        elif p_tree_hap[32].bin == 1:
+            rshamt = 1
+        elif p_tree_hap[31].bin == 1:
+            rshamt = 0
+        else:
+            rshamt = 0
+
+        close_path = p_tree_hap >> rshamt
+    
+        # Leading zero count for far path
+        clz_in = p_tree_hap[31:0]
+        if bf16.hwutil.leading_zero_count(clz_in) < 32:
+            lshamt = bf16.hwutil.leading_zero_count(clz_in)
+        else:
+            lshamt = 0
+        
+        far_path = clz_in << lshamt
+        rnd_in = far_path if rshamt == 0 else close_path[31:0]
+
+        rnd = rnd_in[7]
+        sticky = rnd_in[6:0].reduceor()
+        round = (rnd & sticky) | (rnd_in[8] & rnd & ~sticky)
+
+        normed = bf16.ubit(33, (rnd_in + (round << 7)).bin)
+
+        if zero_hap:
+            t_exp = bf16.ubit(8, '0')
+        elif rshamt > 0:
+            t_exp = bf16.ubit(8, bin(int(o_max_exp) + rshamt + 2))
+        else:
+            t_exp = bf16.ubit(8, bin(int(o_max_exp) + 2 - lshamt))
+        
+        # Post normalization
+        out_sign = tree_hap[36]
+        out_exp = t_exp + 1 if normed[32].bin == 1 else t_exp
+        # 7bits of fraction
+        out_frac = normed[31:24] if normed[32].bin == 1 else normed[30:23]
+
+        print(out_sign, out_exp, out_frac)
+
+        summation = bf16.Bfloat16.compose_bf16(out_sign, out_exp, out_frac)
+        return summation
 #        return summation
