@@ -60,13 +60,13 @@ class Bfloat16:
         return sign
 
     def set_exponent(self, exponent: int) -> None:
-        if not 0 <= exponent + self.bias < (1 << self.exponent_bits):
+        if not 0 - self.bias <= exponent <= self.exp_max:
             raise ValueError(f"Bfloat16 exponent value must be in range of -127 ~ 128")
         return exponent
 
     def set_mantissa(self, mantissa: int) -> None:
-        if not 0 <= mantissa < (1 << self.mantissa_bits):
-            raise ValueError(f"Bfloat16 mantissa value must be in range of 0 ~ 128")
+        if not 0 <= mantissa <= self.mant_max:
+            raise ValueError(f"Bfloat16 mantissa value must be in range of 0 ~ 127")
         return mantissa
     
     def isnan(self) -> bool:
@@ -126,7 +126,7 @@ class Bfloat16:
     def float_to_bf16(cls, float: float) -> 'Bfloat16':
         bf16_bias = cls.bias
         bf16_sign, bf16_exp_before_bias, fp32_mant = util.decomp_fp32(float)
-        bf16_exp, bf16_mant = util.round_and_postnormalize(bf16_exp_before_bias, fp32_mant, 23, 7, 3)
+        bf16_exp, bf16_mant = util.round_and_postnormalize(bf16_exp_before_bias, fp32_mant, 23, 7)
         bf16_exp = bf16_exp - bf16_bias
         return Bfloat16(bf16_sign, bf16_exp, bf16_mant)
     
@@ -205,8 +205,10 @@ class Bfloat16:
             float_repr = 0.0
         elif self.isnan():
             float_repr = float('nan')
-        elif self.isinf():
+        elif self.isinf() and self.sign == 0:
             float_repr = float('inf')
+        elif self.isinf() and self.sign == 1:
+            float_repr = float('-inf')
         else:
             float_repr =  self.bf16_to_float()
         return float_repr
