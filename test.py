@@ -56,7 +56,20 @@ if __name__ == "__main__":
 #    test_add()
 #    test_fma()
 #    test_summation()
-    test_rand_add(10)
-    test_rand_fma(10)
-    test_rand_summation(10)
+#    test_rand_add(10)
+#    test_rand_fma(10)
+#    test_rand_summation(10)
+    a = -8.715097876569077e+29
+    b = -9.769962616701378e-14
+    c = -9.907919180215091e+16
+    A = bf16.float_to_bf16(a)
+    B = bf16.float_to_bf16(b)
+    C = bf16.float_to_bf16(c)
+#    test.test_add.test_add(a, b)
+#    res = bf16.fma(A, B, C)
+#    print(res)
+    test.test_fma.test_fma(a, b, c)
+#    print(C)
+#    tfc = test.test_fma.convert_to_tfbf16(c)
+#    print(tfc)
     pass
