@@ -52,9 +52,10 @@ class FloatMultiplication:
             ret_mant_0 = (a_mant_us * b_mant_us)
 
             #normalize & rounding
-            # if mant = 16b'1111_1111_1111_1111 then after rounding and postnormalization:: exp = exp + 2, mant = 7'b0
+            # if mant = 16b'11.11_1111_1111_1111 then after rounding and postnormalization:: exp = exp + 2, mant = 7'b0
+            # 16b'10.1111_..., 16b01.1111.... postnormalization check 
             if ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, '1111111111111111'):
-                ret_exp_1 = ret_exp_0 + bf16.sbit(len(ret_exp_0) + 2 ,'2')
+                ret_exp_1 = ret_exp_0 + bf16.sbit(len(ret_exp_0) + 2 ,'010')
                 # mant[15:0]
                 ret_mant_1 = ret_mant_0
                 # mant[15:8]
