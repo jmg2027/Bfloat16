@@ -10,6 +10,9 @@ def convert_to_tfbf16(num: float):
     return tf.cast(num, tf.bfloat16)
 
 def check_float_equal(res1, res2):
+    # nan cannot compare
+    if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
+        return True
     if float(res1) == float(res2):
         return True
     else:
