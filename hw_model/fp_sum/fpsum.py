@@ -5,6 +5,12 @@ import bf16.bf16 as bf16
 # FMUL -> reg -> ALIGN SHIFT -> ADDER TREE -> POST ADDER & FACC
 # 32BIT FLOAT ACC = ACCUM(8 BF16 INPUT, 8 BF16 WEIGHT)
 # ACC + reduce_sum(BF16 A, BF16 B)
+
+# FIX: Change name to Inner product
+# FIX: Make summation logic
+# FIX: Summation: Sum(bf16 vectors , ACC(FP32/BF16))
+# FIX: output: Singel FP32/BF16
+
 '''
 FMUL
 Floating point multiplyer
@@ -53,6 +59,7 @@ unrounded result = 0000_1.XXX_XXXX_XXXX_XXXX_XXXX_XXXX_RSSS_SSSS
 class FloatSummation:
     '''
     8 BF16 vectors (assumes list input)
+    FIX: 64(32) BF16 vectors
     16 bits accumulator
     '''
     
@@ -93,6 +100,9 @@ class FloatSummation:
 #        print('exp_w_signed', exp_w_signed)
         # Adjust hidden bit to mantissa
         # Adjust 3 zero bits
+        # FIX: GRS
+        # FIX: Alignment size = inner sum mantissa bitwidth, 24 + align_bitwidth
+        # FIX: for bf16 input, concat 16*'0' + align_bitwidth
         mant_i_us = []
         for i in mant_i:
             mant_i_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}000'))
