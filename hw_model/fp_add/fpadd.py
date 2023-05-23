@@ -22,7 +22,7 @@ class FloatAddition:
         # nan + ? -> nan
         # nan inputs clearance
         if self.a.isnan() or self.b.isnan():
-            ret_sign_0 = a_sign ^ b_sign
+            ret_sign_0 = bf16.bit(1, '0')
             ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # inf + inf = inf
@@ -33,7 +33,7 @@ class FloatAddition:
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # -inf + +inf = nan
         elif (self.a.isinf() and self.b.isinf() and (self.a.sign != self.b.sign)):
-            ret_sign_0 = a_sign ^ b_sign
+            ret_sign_0 = bf16.bit(1, '0')
             ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bin(bf16.Bfloat16.mant_max))
         # inf + not inf = inf
@@ -136,8 +136,6 @@ class FloatAddition:
             # Add mantissa (Including sub)
             # mant_add[11:0] (Including carry)
             # Not to discard carry
-            #mant_add_before_carry = bf16.ubit.add_bitstring(mant_add_in_a, mant_add_in_b)
-            #mant_add = bf16.ubit.add_bitstring(mant_add_before_carry, mant_add_in_carry)
             mant_add = bf16.ubit.add_bitstring(mant_add_in_a, mant_add_in_b)
             ret_mant_0 = bf16.ubit(bf16.Bfloat16.mantissa_bits + 5, mant_add.bin)
             #print('sum', repr(mant_add))
@@ -172,28 +170,39 @@ class FloatAddition:
                 exp_adj = 0
                 ret_mant_1 = ret_mant_0
 
-            exp_adj_bit = bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj))
             ret_exp_1 = bf16.sbit.add_bitstring(ret_exp_0, bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj)))
 
             # adjusted exponent: remove mantissa carry
             ret_mant_2 = ret_mant_1[ret_mant_0.bitwidth-2:0]
 
             # Round and Postnormalization
-            if ret_mant_2 == bf16.ubit(bf16.Bfloat16.mantissa_bits + 4, f'{1*(bf16.Bfloat16.mantissa_bits + 4)}'):
-                # Postnormalize
-                ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, 1)
-                ret_mant_3 = bf16.ubit(8, '0')
+            # Postnormalize: when mant = 1.111_1111_R (R = 1)
+            # FIX: normalize in cases of mantissa result: 11.11_1111_R, 10.11_1111_R, 01.11_1111_R
+            # 0.111_1111
+            if ret_mant_2[ret_mant_2.bitwidth-1:2] == bf16.ubit(bf16.Bfloat16.mantissa_bits + 2, '1' * (bf16.Bfloat16.mantissa_bits + 2)):
+                ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
+                ret_mant_3 = bf16.ubit(8, '10000000')
             else:
                 # round
                 ret_exp_2 = ret_exp_1
-                ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8, 1)
+                ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8)
+            
+            #print('exp0',ret_exp_0)
+            #print('exp1',ret_exp_1)
+            #print('exp2',ret_exp_2)
+            #print('mant0',ret_mant_0)
+            #print('mant1',ret_mant_1)
+            #print('mant2',ret_mant_2)
+            #print('mant3',ret_mant_3)
             
             # Overflow case: make inf
-            if ret_exp_2[bf16.Bfloat16.exponent_bits:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
+            # ret_exp_2: 01_0000_0000 ~
+            if ret_exp_2[bf16.Bfloat16.exponent_bits + 1:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
             # Underflow case: make zero
-            elif ret_exp_2[bf16.Bfloat16.exponent_bits:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits + 1, bin(0)):
+            # ret_exp_2: 11_0000_0000 ~
+            elif ret_exp_2[bf16.Bfloat16.exponent_bits + 1:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits + 1, bin(0)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, '0')
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
 
