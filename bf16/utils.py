@@ -100,7 +100,7 @@ def from_lower_fp_to_higher_fp(sign, exponent, mantissa):
 def get_hidden_bit(exponent: int) -> int:
     return 0 if exponent == 0 else 1
 
-def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7, sticky_bit_width = 1):
+def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7):
     """
     This method does not care about carry comes out from round up carry from all 1s
     To deal with it, use another method
@@ -110,7 +110,7 @@ def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7, sticky_bit_width = 
 
     guard_bit = 0 if (n - 1) == m else (mant >> (n - m - 1)) & 1
     round_bit = 0 if (n - 2) == m else (mant >> (n - m - 2)) & 1
-    sticky_bit = 0 if (n - 2 - sticky_bit_width) == m else (mant >> n - m - 2 - sticky_bit_width) & ((1 << sticky_bit_width) - 1)
+    sticky_bit = 0 if (n - 3) == m else (mant << (m + 3))
     truncated_number = mant >> (n-m)
 
     if guard_bit == 0:
@@ -136,11 +136,11 @@ def post_normalize_mantissa(exp: int, mant: int, n: int = 7) -> Tuple[int, int]:
     """
     return (exp + 1, 0) if (1 << (n + 1) - 1) == mant else (exp, mant)
 
-def round_and_postnormalize(exp: int, mant: int, n: int = 23, m: int = 7, sticky_bit_width: int = 1) -> Tuple[int, int]:
+def round_and_postnormalize(exp: int, mant: int, n: int = 23, m: int = 7,) -> Tuple[int, int]:
     """
     n: bitwidth of round number, m: bitwidth of rounded result
     """
-    rnd_mant = round_to_nearest_even_mantissa(mant, n, m, sticky_bit_width)
+    rnd_mant = round_to_nearest_even_mantissa(mant, n, m)
     post_exp, post_mant = post_normalize_mantissa(exp, rnd_mant, m)
     return post_exp, post_mant
 
