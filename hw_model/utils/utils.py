@@ -24,15 +24,16 @@ def radix_4_booth_encoder(bin: str) -> List:
         enc_list.insert(0, enc_value)
     return enc_list
 
-def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int, sticky_width = 3) -> bf16.bit:
+def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int) -> bf16.bit:
     # bitwidth of bit should be larger than round_width + grs bits
     # xxxx_xxxx_xxxx_xxxx...
     # xxxx_xxxG_RSSS_SSSS...
-    if round_width + 2 + sticky_width > bit.bitwidth:
+    if round_width + 2 > bit.bitwidth:
         raise ValueError("Bitwidth of before truncation should be larger than one of after truncation")
     guard_bit = bit[bit.bitwidth - round_width - 1]
     round_bit = bit[bit.bitwidth - round_width - 2]
-    sticky_bitsting = bit[bit.bitwidth - round_width - 3: bit.bitwidth - round_width - 3 - sticky_width + 1]
+    sticky_bitsting = bit[bit.bitwidth - round_width - 3:0]
+    
 
     sticky_bit = sticky_bitsting.reduceor()
     truncated_bit = bit[bit.bitwidth-1:bit.bitwidth - round_width]
