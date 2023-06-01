@@ -1,7 +1,7 @@
 import bf16.bf16 as bf16
 
 class FloatAddition:
-    def __init__(self, a, b):
+    def __init__(self, a: 'bf16.Bfloat16', b: 'bf16.Bfloat16'):
         self.a = a
         self.b = b
 
@@ -101,7 +101,6 @@ class FloatAddition:
                 mant_unshift = b_mant_us.concat(bf16.ubit(3, '0'))
                 mant_shift_in = a_mant_us.concat(bf16.ubit(2, '0'))
             
-            
             # Sticky bit:
             # if exp_diff is larger than mantissa bits + hidden bit + GR then all shift mantissa is stick
             # else sticky is exp_diff - 3 ~ 0
@@ -169,6 +168,10 @@ class FloatAddition:
             else:
                 exp_adj = 0
                 ret_mant_1 = ret_mant_0
+            
+            # if mant: 11.11_1111_1R, then after normalize: 1.111_1111_1 -> 10.00_0000_00
+            # if mant: 10.11_1111_1R, then after normalize: 1.011_1111_1 -> x
+            # if mant: 01.11_1111_1R, then after normalize: 01.11_1111_1R -> 10.00_0000_00 (when R = 1)
 
             ret_exp_1 = bf16.sbit.add_bitstring(ret_exp_0, bf16.sbit(ret_exp_0.bitwidth, bin(exp_adj)))
 
@@ -177,8 +180,7 @@ class FloatAddition:
 
             # Round and Postnormalization
             # Postnormalize: when mant = 1.111_1111_R (R = 1)
-            # FIX: normalize in cases of mantissa result: 11.11_1111_R, 10.11_1111_R, 01.11_1111_R
-            # 0.111_1111
+            # 1.111_1111
             if ret_mant_2[ret_mant_2.bitwidth-1:2] == bf16.ubit(bf16.Bfloat16.mantissa_bits + 2, '1' * (bf16.Bfloat16.mantissa_bits + 2)):
                 ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
                 ret_mant_3 = bf16.ubit(8, '10000000')

@@ -27,3 +27,20 @@ def random_bf16():
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
+
+def check_fail_list(fail_list: list):
+    print("TEST RESULT")
+    if fail_list == []:
+        fail_list.append("ALL TEST PASSED")
+    else:
+        print("Test failed")
+    for i in fail_list:
+        print(i)
+    return
+
+def check_fail_status(test_res_str: str) -> bool:
+    if "FAILED" in test_res_str:
+        fail_status = True
+    else: 
+        fail_status = False
+    return fail_status

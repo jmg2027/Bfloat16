@@ -51,13 +51,25 @@ class FloatFMA:
             ret_exp_0 = bf16.bit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.exp_max + bf16.Bfloat16.bias))
             ret_mant_0 = bf16.bit(bf16.Bfloat16.mantissa_bits, bf16.Bfloat16.mantissa_bits * '0')
         # FIX: add zero adddend/product cases
+        # Zero product case
+        elif self.a.iszero() or self.b.iszero():
+            # result is c
+            ret_sign_0 = c_sign
+            ret_exp_0 = c_exp
+            ret_mant_0 = c_mant_nohidden
         else:
             isnormal = True
-
 
         if isnormal:
             # Define precision bitwidth
             precision_bit = bf16.Bfloat16.mantissa_bits + 1
+
+            # Zero addend case
+            if self.c.iszero():
+                # set flag for normal calculation
+                addend_is_zero = True
+            else:
+                addend_is_zero = False
 
             # Sign precalculation
             p_sign = a_sign ^ b_sign
@@ -68,11 +80,8 @@ class FloatFMA:
 
             # Product is 1x.xxx...
             # Product exponent calculation and normalize
-            # If product is zero
-            if self.a.iszero() or self.b.iszero():
-                p_exp_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, '0')
             # FIX: addend to 01.xxx_xxxx
-            elif p_mant_us[2*precision_bit-1] == bf16.bit(1, '1'):
+            if p_mant_us[2*precision_bit-1] == bf16.bit(1, '1'):
                 # 1x.xxx...
                 # exp + 1
                 p_exp_signed = a_exp_signed + b_exp_signed - bias_signed + bf16.sbit(2, '01')

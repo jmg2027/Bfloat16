@@ -38,13 +38,13 @@ test_set = [
         (-2, 2),
     # invert case
         (-4, 2),
-        (2, -4)
+        (2, -4),
+    # When two add of mantissa is 1111_1111_1110
+        (float(bf16(0, 0, bf16.mant_max)), float(bf16(0, 0, bf16.mant_max))),
+    # When two add of mantissa is 0111_1111_1111
+        (float(bf16(0, 8, bf16.mant_max)), float(bf16(0, 0, bf16.mant_max)))
 ]
 
-def rand_add_test(times: int):
-    for i in range(times):
-        test_add(float(random_bf16()), float(random_bf16()))
-    return
 
 def test_add(num1: float, num2: float):
     a = convert_to_bf16(num1)
@@ -56,12 +56,26 @@ def test_add(num1: float, num2: float):
     tfbf16_res = tfa + tfb
     
     if check_float_equal(bf16_res, tfbf16_res):
-        print(f'PASSED {num1} + {num2}')
+        test_res_str = f'PASSED {num1} + {num2}'
     else:
-        print(f'FAILED {num1} + {num2}, bf16: {bf16_res}, tfbf16: {tfbf16_res}')
+        test_res_str = f'FAILED {num1} + {num2}, bf16: {bf16_res}, tfbf16: {tfbf16_res}'
+    print(test_res_str)
+    return test_res_str
+
+def rand_test(times: int):
+    fail_list = []
+    for i in range(times):
+        test_res_str = test_add(float(random_bf16()), float(random_bf16()))
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
 
 def test():
+    fail_list = []
     for a, b in test_set:
-        test_add(a, b)
+        test_res_str = test_add(a, b)
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return

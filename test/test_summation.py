@@ -87,12 +87,13 @@ def test_summation(input_vector, weight_vector):
     tfbf16_res = tf_inner_product(tfa, tfb)
     
     if check_float_equal(bf16_res, tfbf16_res):
-        print(f'PASSED SUM({input_vector}, {weight_vector})')
+        test_res_str = f'PASSED SUM({input_vector}, {weight_vector})'
     else:
-        print(f'FAILED SUM({input_vector}, {weight_vector}), bf16: {bf16_res}, tfbf16: {tfbf16_res}')
-    return
+        test_res_str = f'FAILED SUM({input_vector}, {weight_vector}), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
+    print(test_res_str)
+    return test_res_str
 
-def rand_summation_test(times: int):
+def rand_test(times: int):
     # Generate 8 input random bf16
     input_vector = list()
     for i in range(8):
@@ -102,11 +103,19 @@ def rand_summation_test(times: int):
     for i in range(8):
         weight_vector.append(float(random_bf16()))
 
+    fail_list = []
     for i in range(times):
-        test_summation(input_vector, weight_vector)
+        test_res_str = test_summation(input_vector, weight_vector)
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
 
 def test():
+    fail_list = []
     for vector_set in test_set:
-        test_summation(vector_set['input'], vector_set['weight'])
+        test_res_str = test_summation(vector_set['input'], vector_set['weight'])
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return

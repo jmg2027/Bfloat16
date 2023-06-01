@@ -1,7 +1,7 @@
 import bf16.bf16 as bf16
 
 class FloatMultiplication:
-    def __init__(self, a:'bf16.Bfloat16', b:'bf16.Bfloat16') -> None:
+    def __init__(self, a: 'bf16.Bfloat16', b: 'bf16.Bfloat16') -> None:
         self.a = a
         self.b = b
 
@@ -21,6 +21,9 @@ class FloatMultiplication:
         
         # sign
         ret_sign = a_sign ^ b_sign
+
+        # Define precision bitwidth
+        precision_bit = bf16.Bfloat16.mantissa_bits + 1
 
         # Special cases
         #input
@@ -51,13 +54,31 @@ class FloatMultiplication:
             # mantissa
             ret_mant_0 = (a_mant_us * b_mant_us)
 
-            #normalize & rounding
-            # if mant = 16b'11.11_1111_1111_1111 then after rounding and postnormalization:: exp = exp + 2, mant = 7'b0
-            # 16b'10.1111_..., 16b01.1111.... postnormalization check 
-            if ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, '1111111111111111'):
+            # define product bitwidth
+            product_bit = 2 * precision_bit
+
+            # normalize & rounding
+            # In case of 11.11_1111_1111_1111, rounded value would be 100.0_0000_0000_0000 then after rounding and postnormalization:: exp = exp + 2, mant = 7'b0
+            if ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, f'{"1" * product_bit}'):
                 ret_exp_1 = ret_exp_0 + bf16.sbit(len(ret_exp_0) + 2 ,'010')
                 # mant[15:0]
                 ret_mant_1 = ret_mant_0
+                # mant[15:8]
+                ret_mant_2 = bf16.ubit(8, '10000000')
+            # In case of 10.11_1111_1111_1111, rounded value would be 11.00_0000_0000_0000 
+            elif ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, f'10{"1" * (product_bit-2)}'):
+                ret_exp_1 = ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2 ,'1')
+                # mant[15:8]
+                ret_mant_1 = ret_mant_0
+                # rounding
+                # mant[15:8]
+                ret_mant_2 = bf16.ubit(8, '11000000')
+            # In case of 01.11_1111_1111_1111, rounded value would be 10.00_0000_0000_0000
+            elif ret_mant_0 == bf16.ubit(ret_mant_0.bitwidth, f'01{"1" * (product_bit-2)}'):
+                ret_exp_1 = ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2 ,'1')
+                # mant[15:8]
+                ret_mant_1 = ret_mant_0
+                # rounding
                 # mant[15:8]
                 ret_mant_2 = bf16.ubit(8, '10000000')
             # mant[15] == 1
@@ -75,6 +96,7 @@ class FloatMultiplication:
                 ret_mant_1 = ret_mant_0[len(ret_mant_0) - 2:0]
                 # mant[14:7]
                 ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
+            
 
             # remove hidden bit
             ret_mant_3 = ret_mant_2[bf16.Bfloat16.mantissa_bits - 1:0]

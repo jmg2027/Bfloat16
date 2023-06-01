@@ -21,10 +21,6 @@ test_set = [
 		(10000.0, -2.0, 3.0)
 ]
 
-def rand_fma_test(times: int):
-    for i in range(times):
-        test_fma(float(random_bf16()), float(random_bf16()), float(random_bf16()))
-    return
 
 def test_fma(num1: float, num2: float, num3: float):
     a = convert_to_bf16(num1)
@@ -38,12 +34,26 @@ def test_fma(num1: float, num2: float, num3: float):
     tfbf16_res = tfa * tfb + tfc
     
     if check_float_equal(bf16_res, tfbf16_res):
-        print(f'PASSED FMA({num1}, {num2}, {num3})')
+        test_res_str = f'PASSED FMA({num1}, {num2}, {num3})'
     else:
-        print(f'FAILED FMA({num1}, {num2}, {num3}), bf16: {bf16_res}, tfbf16: {tfbf16_res}')
+        test_res_str = f'FAILED FMA({num1}, {num2}, {num3}), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
+    print(test_res_str)
+    return test_res_str
+
+def rand_test(times: int):
+    fail_list = []
+    for i in range(times):
+        test_res_str = test_fma(float(random_bf16()), float(random_bf16()), float(random_bf16()))
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
 
 def test():
+    fail_list = []
     for a, b, c in test_set:
-        test_fma(a, b, c)
+        test_res_str = test_fma(a, b, c)
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
