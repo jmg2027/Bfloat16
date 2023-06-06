@@ -1,15 +1,6 @@
 import bf16.bf16 as bf16
 
-# Mul & Reduce Unit
-# AIP architecture (hyunpil.kim@samsung.com)
-# FMUL -> reg -> ALIGN SHIFT -> ADDER TREE -> POST ADDER & FACC
-# 32BIT FLOAT ACC = ACCUM(8 BF16 INPUT, 8 BF16 WEIGHT)
-# ACC + reduce_sum(BF16 A, BF16 B)
-
-# FIX: Change name to Inner product
-# FIX: Make summation logic
-# FIX: Summation: Sum(bf16 vectors , ACC(FP32/BF16))
-# FIX: output: Singel FP32/BF16
+# Summation Unit
 
 '''
 FMUL
@@ -58,19 +49,18 @@ unrounded result = 0000_1.XXX_XXXX_XXXX_XXXX_XXXX_XXXX_RSSS_SSSS
 
 class FloatSummation:
     '''
-    8 BF16 vectors (assumes list input)
-    FIX: 64(32) BF16 vectors
+    64(32) BF16 vectors
     16 bits accumulator
     '''
     
     align_bitwidth = 32
-    def __init__(self, input_vector, weight_vector):
-        self.input_vector = input_vector
-        self.weight_vector = weight_vector
+    def __init__(self, vector):
+        self.vector = vector
 #        self.acc = bf16.Bfloat16(0, -127, 0)
         # This is for test
 
     def set_align_bitwidth(self, n: int):
+        # Should set align bitwidth more than 8
         self.align_bitwidth = n
 
     def summation(self):
@@ -79,8 +69,7 @@ class FloatSummation:
         # Decompose elements
 #        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))
 #        sign_v, exp_v, mant_v = zip(*decompsed_vector)
-        sign_i, exp_i, mant_i = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.input_vector))))
-        sign_w, exp_w, mant_w = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.weight_vector))))
+        sign_v, exp_v, mant_v = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.vector))))
         sign_acc, exp_acc, mant_nohidden_acc = self.acc.decompose_bf16()
         exp_acc_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{exp_acc.bin}')
         # Treat acc as fp32 in module -> mantissa to 24bits
@@ -88,165 +77,162 @@ class FloatSummation:
 
         # Process elements
         # Exponent to signed bitstring
-        exp_i_signed = []
-        for i in exp_i:
-            exp_i_signed.append(bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{i}'))
-        exp_w_signed = []
-        for i in exp_w:
-            exp_w_signed.append(bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{i}'))
-        bias_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, bin(bf16.Bfloat16.bias))
+        exp_v_signed = []
+        for i in exp_v:
+            exp_v_signed.append(bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{i}'))
         
-#        print('exp_i_signed', exp_i_signed)
-#        print('exp_w_signed', exp_w_signed)
+        #print('exp_v_signed', exp_v_signed)
         # Adjust hidden bit to mantissa
-        # Adjust 3 zero bits
-        # FIX: GRS
         # FIX: Alignment size = inner sum mantissa bitwidth, 24 + align_bitwidth
         # FIX: for bf16 input, concat 16*'0' + align_bitwidth
-        mant_i_us = []
-        for i in mant_i:
-            mant_i_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}000'))
-        mant_w_us = []
-        for i in mant_w:
-            mant_w_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}000'))
+        mant_v_us = []
+        for i in mant_v:
+            mant_v_us.append(bf16.ubit(bf16.Bfloat16.mantissa_bits + 1, f'1{i}'))
         
-#        print('mant_i_us', mant_i_us)
-#        print('mant_w_us', mant_w_us)
+        #print('mant_v_us', mant_v_us)
 
         # Normal case
-
-        # FMUL
-        # Calculate sign bit
-        o_sign = []
-        for i in range(len(sign_i)):
-            o_sign.append(sign_i[i] ^ sign_w[i])
-        # Calculate exponent
-        w_exp_mul = []
-        for i in range(len(exp_i_signed)):
-            w_exp_mul.append(exp_i_signed[i] + exp_w_signed[i] - bias_signed)
-        # append for acc
-        w_exp_mul.append(exp_acc_signed)
-        o_exp_mul = w_exp_mul
-
         #Max tree
-        l0_exp_max = [0,0,0,0]
-        l0_exp_max[0] = w_exp_mul[0] if w_exp_mul[0] > w_exp_mul[1] else w_exp_mul[1]
-        l0_exp_max[1] = w_exp_mul[2] if w_exp_mul[2] > w_exp_mul[3] else w_exp_mul[3]
-        l0_exp_max[2] = w_exp_mul[4] if w_exp_mul[4] > w_exp_mul[5] else w_exp_mul[5]
-        l0_exp_max[3] = w_exp_mul[6] if w_exp_mul[6] > w_exp_mul[7] else w_exp_mul[7]
+        l0_exp_max = [0] * 32
+        for i in range(len(l0_exp_max)):
+            l0_exp_max[i] = exp_v_signed[2*i] if exp_v_signed[2*i] > exp_v_signed[2*i+1] else exp_v_signed[2*i+1]
 
-        l1_exp_max = [0,0]
-        l1_exp_max[0] = l0_exp_max[0] if l0_exp_max[0] > l0_exp_max[1] else l0_exp_max[1]
-        l1_exp_max[1] = l0_exp_max[2] if l0_exp_max[2] > l0_exp_max[3] else l0_exp_max[3]
+        l1_exp_max = [0] * 16
+        for i in range(len(l1_exp_max)):
+            l1_exp_max[i] = l0_exp_max[2*i] if l0_exp_max[2*i] > l0_exp_max[2*i+1] else l0_exp_max[2*i+1]
 
-        l2_exp_max = l1_exp_max[0] if l1_exp_max[0] > l1_exp_max[1] else l1_exp_max[1]
+        l2_exp_max = [0] * 8
+        for i in range(len(l2_exp_max)):
+            l2_exp_max[i] = l1_exp_max[2*i] if l1_exp_max[2*i] > l1_exp_max[2*i+1] else l1_exp_max[2*i+1]
 
-        l3_exp_max = l2_exp_max if l2_exp_max > o_exp_mul[8] else o_exp_mul
-        o_max_exp = l3_exp_max
+        l3_exp_max = [0] * 4
+        for i in range(len(l3_exp_max)):
+            l3_exp_max[i] = l2_exp_max[2*i] if l2_exp_max[2*i] > l2_exp_max[2*i+1] else l2_exp_max[2*i+1]
 
-        #mantissa multiplication
-        o_mul_mant = []
-        for i in range(len(mant_i_us)):
-            o_mul_mant.append(mant_i_us[i] * mant_w_us[i])
-#        print(o_mul_mant)
-        #negate acc mantissa if signed
-        add_mant_unsigned = bf16.sbit(25, f'0{mant_acc_us}')
-        o_add_mant = -add_mant_unsigned if sign_acc == bf16.bit(1, '1') else add_mant_unsigned
+        l4_exp_max = [0] * 2
+        for i in range(len(l4_exp_max)):
+            l4_exp_max[i] = l3_exp_max[2*i] if l3_exp_max[2*i] > l3_exp_max[2*i+1] else l3_exp_max[2*i+1]
+
+        l5_exp_max = [0]
+        for i in range(len(l5_exp_max)):
+            l5_exp_max[i] = l4_exp_max[2*i] if l4_exp_max[2*i] > l4_exp_max[2*i+1] else l4_exp_max[2*i+1]
+        
+        # Acc exp
+        o_max_exp = l5_exp_max[0] if l5_exp_max[0] > exp_acc_signed else exp_acc_signed
 
         # Align shifter
         shamt = []
-        for i in range(len(o_exp_mul)):
-            shamt.append(int(o_max_exp - o_exp_mul[i]))
-        # t_mant_mul = [31:0]
-        w_mant_mul = []
-        for i in range(len(o_sign)):
-            t_mant_mul = bf16.sbit(32, f'0{o_mul_mant[i]}{9*"0"}')
-            if o_sign[i] == bf16.bit(1, '1'):
-                w_mant_mul.append(-t_mant_mul)
+        for i in range(len(exp_v_signed)):
+            shamt.append(int(o_max_exp - exp_v_signed[i]))
+        # Acc shift
+        shamt.append(int(o_max_exp - exp_acc_signed))
+
+        # mantissa: x.xxx_xxxx
+        # shifted mantissa: x.xxx_xxxx_xxxx_...._xxxx
+        #                   < align shifter length  >
+        # align_bitwidth - mantissa_bits - 1 - 1
+        # 64 entries -> 6 bits
+        # Extend to align shifter length+C+S+6
+        # Extended mantissa: 0000_0000_h.mmm_mmmm0_...._0000
+        #                    <   align shifter length+8  >
+        # Make mantissa to signed bitstring
+        # signed mantissa: SSSS_SSSS_h.mmm_mmmm_...._xxxx
+        #                  < align shifter length+8 >
+        # added mantissa: CSxx_xxxx_x.xxx_xxxx_...._xxxx
+        #                 <   align shifter length+8   >
+        # Carry bit is not used, so remove it
+        align_bit = self.align_bitwidth
+        sum_bit = align_bit + 8
+        mant_v_sign = []
+        for i in range(len(sign_v)):
+            mant_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_v_us[i]}{(align_bit - 9) * "0"}')
+            if sign_v[i] == bf16.bit(1, '1'):
+                mant_v_sign.append(-mant_sign)
             else:
-                w_mant_mul.append(t_mant_mul)
+                mant_v_sign.append(mant_sign)
         # accumulator
-        w_mant_mul.append(bf16.sbit(32, f'{o_add_mant[24]}{o_add_mant}{6*"0"}'))
+        mant_acc_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_acc_us}{(align_bit - 9) * "0"}')
+        mant_v_sign.append(mant_acc_sign)
 
         # mantissa shift
-        o_aligned = []
-        for i in range(len(w_mant_mul)):
-            t_aligned = w_mant_mul[i].arith_rshift(shamt[i])
-            o_aligned.append(t_aligned)
+        # shifted & signed mantissa: Sx.xxx_xxxx_xxxx_...._xxxx
+        #                            < align shifter length+1 >
+        mant_v_aligned = []
+        for i in range(len(mant_v_sign)):
+            mant_aligned = mant_v_sign[i].arith_rshift(shamt[i])
+            mant_v_aligned.append(mant_aligned)
 
         # Adder tree
-        # divide into lsb, msb
-        w_aligned_lsb = []
-        for i in range(len(o_aligned)):
-            w_aligned_lsb.append(bf16.bit(20, f'{4*"0"}{o_aligned[i][15:0]}'))
-        w_aligned_msb = []
-        for i in range(len(o_aligned)):
-            w_aligned_msb.append(bf16.bit(20, f'{4*"0"}{o_aligned[i][31:16]}'))
-        
-        o_lsb_out = w_aligned_lsb[0] + \
-                    w_aligned_lsb[1] + \
-                    w_aligned_lsb[2] + \
-                    w_aligned_lsb[3] + \
-                    w_aligned_lsb[4] + \
-                    w_aligned_lsb[5] + \
-                    w_aligned_lsb[6] + \
-                    w_aligned_lsb[7] + \
-                    w_aligned_lsb[8]
+        # 64 entries -> 6 bits
+        # added mantissa: CSxx_xxxx.xxxx_xxxx_...._xxxx
+        #                 <   align shifter length+8   >
+        # Carry bit is not used, so remove it
+        mant_add = bf16.sbit(sum_bit, '0')
+        for i in range(len(mant_v_aligned)):
+            mant_add = mant_add + mant_v_aligned[i]
 
-        o_msb_out = w_aligned_msb[0] + \
-                    w_aligned_msb[1] + \
-                    w_aligned_msb[2] + \
-                    w_aligned_msb[3] + \
-                    w_aligned_msb[4] + \
-                    w_aligned_msb[5] + \
-                    w_aligned_msb[6] + \
-                    w_aligned_msb[7] + \
-                    w_aligned_msb[8]
 
-        #print(repr(o_lsb_out))
-        #print(repr(o_msb_out))
+        print('mant_add: ', repr(mant_add))
 
-        #Post adder & accumulation
-        msb_in = bf16.sbit(20, o_msb_out.bin)
-        lsb_in = bf16.sbit(20, o_lsb_out.bin)
-        msb_hap = bf16.sbit(21, f'{(msb_in + lsb_in[19:16]).bin}')
-        tree_hap = bf16.sbit(37, f'{msb_hap.bin}{lsb_in[15:0].bin}')
-        zero_hap = tree_hap == bf16.sbit(37, '0')
-        p_tree_hap = bf16.ubit(36, f'{(-tree_hap).bin if tree_hap[36].bin == 1 else tree_hap.bin}')
+        # Post adder & accumulation
+        # Sign bitpos: align shifter length + 7
+        mant_add_sign = mant_add[sum_bit-2]
+        zero_mant_result = mant_add[sum_bit-3:0] == bf16.sbit(sum_bit-2, '0')
+        mant_add_nocarry = mant_add[sum_bit-2:0]
+        # mantissa result before sign removal: Sxx_xxxx.xxxx_xxxx_...._xxxx
+        # mantissa result: xx_xxxx.xxxx_xxxx_...._xxxx
+        #                  <  align shifter length+6 >
+        mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign else mant_add_nocarry.bin}')
+        mant_add_result = mant_add_result_before_sign_remove[sum_bit-3:0]
 
         # Leading zero count for close path
-        if p_tree_hap[35].bin == 1:
+        # to sum_bit - 8
+        if mant_add_result[sum_bit-3].bin == '1':
+            rshamt = 5
+            print('Im in 5')
+        elif mant_add_result[sum_bit-4].bin == '1':
             rshamt = 4
-        elif p_tree_hap[34].bin == 1:
+            print('Im in 4')
+        elif mant_add_result[sum_bit-5].bin == '1':
             rshamt = 3
-        elif p_tree_hap[33].bin == 1:
+            print('Im in 3')
+        elif mant_add_result[sum_bit-6].bin == '1':
             rshamt = 2
-        elif p_tree_hap[32].bin == 1:
+            print('Im in 2')
+        elif mant_add_result[sum_bit-7].bin == '1':
             rshamt = 1
-        elif p_tree_hap[31].bin == 1:
+            print('Im in 1')
+        elif mant_add_result[sum_bit-8].bin == '1':
             rshamt = 0
+            print('Im in 0')
         else:
             rshamt = 0
+            print('Im in else')
 
-        close_path = p_tree_hap >> rshamt
+        close_path = mant_add_result >> rshamt
     
         # Leading zero count for far path
-        clz_in = p_tree_hap[31:0]
-        if bf16.hwutil.leading_zero_count(clz_in) < 32:
+        clz_in = mant_add_result[sum_bit-9:0]
+        if bf16.hwutil.leading_zero_count(clz_in) < (sum_bit-8):
             lshamt = bf16.hwutil.leading_zero_count(clz_in)
         else:
             lshamt = 0
+        print('rshamt', rshamt)
+        print('lshamt', lshamt)
         
         far_path = clz_in << lshamt
-        rnd_in = far_path if rshamt == 0 else close_path[31:0]
+        rnd_in = far_path if rshamt == 0 else close_path
 
+        # round in: x.xxxx_xxxx_xxxx_...._xxxx
+        #                  < align shifter length+1 >
+        print('rnd_in: ', rnd_in)
         rnd = rnd_in[7]
         sticky = rnd_in[6:0].reduceor()
         round = (rnd & sticky) | (rnd_in[8] & rnd & ~sticky)
 
-        normed = bf16.ubit(33, (rnd_in + (round << 7)).bin)
+        normed = bf16.ubit(align_bit+1, (rnd_in + (round << 7)).bin)
 
-        if zero_hap:
+        if zero_mant_result:
             t_exp = bf16.ubit(8, '0')
         elif rshamt > 0:
             t_exp = bf16.ubit(8, bin(int(o_max_exp) + rshamt + 2))
@@ -254,12 +240,13 @@ class FloatSummation:
             t_exp = bf16.ubit(8, bin(int(o_max_exp) + 2 - lshamt))
         
         # Post normalization
-        out_sign = tree_hap[36]
-        out_exp = t_exp + 1 if normed[32].bin == 1 else t_exp
+        out_sign = mant_add_sign
+        out_exp = t_exp + 1 if normed[align_bit].bin == 1 else t_exp
         # 7bits of fraction
-        out_frac = normed[31:24] if normed[32].bin == 1 else normed[30:23]
+        out_frac = normed[align_bit-1:align_bit-7] if normed[align_bit].bin == 1 else normed[align_bit-2:align_bit-8]
 
         print(out_sign, out_exp, out_frac)
+        print(repr(out_sign))
 
         summation = bf16.Bfloat16.compose_bf16(out_sign, out_exp, out_frac)
         return summation

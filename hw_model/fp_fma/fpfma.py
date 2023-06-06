@@ -268,11 +268,11 @@ class FloatFMA:
             #ret_mant = ret_mant_4 + bf16.ubit(2, '10')
             ret_mant = ret_mant_4
 
-            print('mant 0', repr(ret_mant_0))
-            print('mant 1', repr(ret_mant_1))
-            print('mant 2', repr(ret_mant_2))
-            print('mant 3', repr(ret_mant_3))
-            print('mant 4', repr(ret_mant_4))
+            #print('mant 0', repr(ret_mant_0))
+            #print('mant 1', repr(ret_mant_1))
+            #print('mant 2', repr(ret_mant_2))
+            #print('mant 3', repr(ret_mant_3))
+            #print('mant 4', repr(ret_mant_4))
 
         else:
             ret_sign = ret_sign_0

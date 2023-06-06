@@ -1,6 +1,10 @@
 from bf16.bf16 import Bfloat16 as bf16
 from test.utils import *
-
+#FAILED 1.3660947373317356e-17 + 7.081195439045951e-19, bf16: Bfloat16(1.431146867680866e-17, sign = 0, exponent=-56, mantissa=4), tfbf16: 1.44199e-17
+#FAILED -2.337619662284851e-07 + -5.617039278149605e-09, bf16: Bfloat16(-2.384185791015625e-07, sign = 1, exponent=-22, mantissa=0), tfbf16: -2.40281e-07
+#FAILED -4.5609180811904755e-36 + -1.8883141251609227e-34, bf16: Bfloat16(-1.925929944387236e-34, sign = 1, exponent=-112, mantissa=0), tfbf16: -1.94098e-34
+#FAILED 8.04638123325432e-28 + 1.9524307404220042e-29, bf16: Bfloat16(8.204153414298523e-28, sign = 0, exponent=-90, mantissa=2), tfbf16: 8.26726e-28
+#FAILED 17729624997888.0 + 264982302294016.0, bf16: Bfloat16(281474976710656.0, sign = 0, exponent=48, mantissa=0), tfbf16: 2.83674e+14
 test_set = [
 		(2, 12),
 		(-2, 12),

@@ -14,6 +14,7 @@ from hw_model.fp_mul.fpmul import FloatMultiplication as Mul
 from hw_model.fp_add.fpadd import FloatAddition as Add
 from hw_model.fp_fma.fpfma import FloatFMA as Fma
 from hw_model.fp_sum.fpsum import FloatSummation as Summation
+from hw_model.fp_mru.fpmru import FloatMRU as MRU
 
 from hw_model.utils import utils as hwutil
 
@@ -55,7 +56,7 @@ class Bfloat16:
         self.sign, self.exponent, self.mantissa = self.set_sign(sign), self.set_exponent(exponent), self.set_mantissa(mantissa)
 
     def set_sign(self, sign: int) -> None:
-        if not (sign == 0 or sign) == 1:
+        if not (sign == 0 or sign == 1):
             raise ValueError(f"Bfloat16 sign value must be 0 or 1")
         return sign
 
@@ -169,14 +170,22 @@ class Bfloat16:
         return fma.fma()
     
     @classmethod
-    def summation(cls, input_vector, weight_vector):
+    def mru(cls, input_vector, weight_vector):
         for v in input_vector:
             if not isinstance(v, Bfloat16):
                 raise TypeError("All input vector operands should be Bfloat16 objects.")
         for v in weight_vector:
             if not isinstance(v, Bfloat16):
                 raise TypeError("All weight vector operands should be Bfloat16 objects.")
-        summation = Summation(input_vector, weight_vector)
+        mru = MRU(input_vector, weight_vector)
+        return MRU.summation()
+    
+    @classmethod
+    def summation(cls, vector):
+        for v in vector:
+            if not isinstance(v, Bfloat16):
+                raise TypeError("All input vector operands should be Bfloat16 objects.")
+        summation = Summation(vector)
         return summation.summation()
 
     # from_blahblah method

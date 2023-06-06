@@ -60,9 +60,9 @@ if __name__ == "__main__":
 #    test_fma()
 #    test_summation()
 #    test_rand_mul(1000000)
-    test_rand_add(10000000)
+#    test_rand_add(1000000)
 #    test_rand_fma(1000)
-#    test_rand_summation(10)
+    test_rand_summation(10)
 #    a = -8.715097876569077e+29
 #    b = -9.769962616701378e-14
 #    c = -9.907919180215091e+16

@@ -28,6 +28,16 @@ def random_bf16():
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
+def random_bf16_range(exp_min = -10, exp_max = 10):
+    min_exp = exp_min 
+    max_exp = exp_max
+    rand_exp = random.randint(min_exp, max_exp)
+    min_mant = 0
+    max_mant = bf16.mant_max
+    rand_mant = random.randint(min_mant, max_mant)
+    rand_sign = random.randint(0,1)
+    return bf16(rand_sign, rand_exp, rand_mant)
+
 def check_fail_list(fail_list: list):
     print("TEST RESULT")
     if fail_list == []:
