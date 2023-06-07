@@ -42,6 +42,7 @@ class FloatSummation:
     '''
     '''
     FIX: Number of vector input to power of 2(n)
+    FIX: Make 4 input summation unit for debugging!
     FIX: ACC can be FP32/BF16, output also
     '''
     
