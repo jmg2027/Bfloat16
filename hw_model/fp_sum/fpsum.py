@@ -47,6 +47,8 @@ class FloatSummation:
     '''
     
     align_bitwidth = 32
+    #vector_element_num = 64
+    vector_element_num = 4
     def __init__(self, vector):
         self.vector = vector
 #        self.acc = bf16.Bfloat16(0, -127, 0)
@@ -55,6 +57,10 @@ class FloatSummation:
     def set_align_bitwidth(self, n: int):
         # Should set align bitwidth more than 10: mantissa bits + hidden bit + 
         self.align_bitwidth = n
+
+    def set_vector_element_num(self, n: int):
+        # Make it power of 2
+        self.vector_element_num = n
 
     def summation(self):
         self.acc = bf16.Bfloat16(0, -127, 0)
@@ -86,32 +92,24 @@ class FloatSummation:
 
         # Normal case
         #Max tree
-        l0_exp_max = [0] * 32
-        for i in range(len(l0_exp_max)):
-            l0_exp_max[i] = exp_v_signed[2*i] if exp_v_signed[2*i] > exp_v_signed[2*i+1] else exp_v_signed[2*i+1]
 
-        l1_exp_max = [0] * 16
-        for i in range(len(l1_exp_max)):
-            l1_exp_max[i] = l0_exp_max[2*i] if l0_exp_max[2*i] > l0_exp_max[2*i+1] else l0_exp_max[2*i+1]
-
-        l2_exp_max = [0] * 8
-        for i in range(len(l2_exp_max)):
-            l2_exp_max[i] = l1_exp_max[2*i] if l1_exp_max[2*i] > l1_exp_max[2*i+1] else l1_exp_max[2*i+1]
-
-        l3_exp_max = [0] * 4
-        for i in range(len(l3_exp_max)):
-            l3_exp_max[i] = l2_exp_max[2*i] if l2_exp_max[2*i] > l2_exp_max[2*i+1] else l2_exp_max[2*i+1]
-
-        l4_exp_max = [0] * 2
-        for i in range(len(l4_exp_max)):
-            l4_exp_max[i] = l3_exp_max[2*i] if l3_exp_max[2*i] > l3_exp_max[2*i+1] else l3_exp_max[2*i+1]
-
-        l5_exp_max = [0]
-        for i in range(len(l5_exp_max)):
-            l5_exp_max[i] = l4_exp_max[2*i] if l4_exp_max[2*i] > l4_exp_max[2*i+1] else l4_exp_max[2*i+1]
+        # Find tree level
+        element_num = self.vector_element_num
+        element_num_shift = element_num
+        tree_level = 0
+        while element_num_shift != 1:
+            element_num_shift = element_num_shift >> 1
+            tree_level += 1
         
-        # Acc exp
-        o_max_exp = l5_exp_max[0] if l5_exp_max[0] > exp_acc_signed else exp_acc_signed
+        print('tree', tree_level)
+
+        # Exponent max tree
+        exp_max_tree = [[0] * (2**(tree_level-i-1)) for i in range(tree_level)]
+        for i in range(tree_level):
+            for j in range(len(exp_max_tree[i])):
+                exp_max_tree[i][j] = exp_v_signed[2*j] if exp_v_signed[2*j] > exp_v_signed[2*j+1] else exp_v_signed[2*j+1]
+        exp_max_vector = exp_max_tree[tree_level-1][0]
+        o_max_exp = exp_max_vector if exp_max_vector > exp_acc_signed else exp_acc_signed
 
         # Align shifter
         shamt = []
@@ -125,28 +123,34 @@ class FloatSummation:
         #                   < align shifter length  >
         # append zero to LSB amount: align_bitwidth - (mantissa bits + hidden bit + 1)
         # 64 entries -> add 6 bits
+        # 2^n entries -> add n bits
         # Extend to align shifter length+C+S+6
+        # Extend to align shifter length+C+S+tree_level
         # Extended mantissa: 0000_0000_h.mmm_mmmm0_...._0000
-        #                    <   align shifter length+8  >
+        #                    <   align shifter length+2+tree_level  >
         # Make 2's complement
         # Make mantissa to signed bitstring
         # signed mantissa: SSSS_SSSS_h.mmm_mmmm_...._xxxx
-        #                  < align shifter length+8 >
+        #                    <   align shifter length+2+tree_level  >
         # Alignment shift
         # added mantissa: CSxx_xxxx_x.xxx_xxxx_...._xxxx
-        #                 <   align shifter length+8   >
+        #                    <   align shifter length+2+tree_level  >
         # Carry bit is not used, so remove it
         align_bit = self.align_bitwidth
-        sum_bit = align_bit + 8
+        # adder bit: bitwidth of MSB extension bits
+        adder_bit = 2 + tree_level
+        # sum bit: bitwidth of adder tree
+        sum_bit = align_bit + adder_bit
+        precision_bit = bf16.Bfloat16.mantissa_bits + 1
         mant_v_sign = []
         for i in range(len(sign_v)):
-            mant_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_v_us[i]}{(align_bit - 8) * "0"}')
+            mant_sign = bf16.sbit(sum_bit, f'{adder_bit * "0"}{mant_v_us[i]}{(align_bit - precision_bit) * "0"}')
             if sign_v[i] == bf16.bit(1, '1'):
                 mant_v_sign.append(-mant_sign)
             else:
                 mant_v_sign.append(mant_sign)
         # accumulator
-        mant_acc_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_acc_us}{(align_bit - 8) * "0"}')
+        mant_acc_sign = bf16.sbit(sum_bit, f'{adder_bit * "0"}{mant_acc_us}{(align_bit - precision_bit) * "0"}')
         if sign_acc == bf16.bit(1, '1'):
             mant_v_sign.append(-mant_acc_sign)
         else:
@@ -186,40 +190,24 @@ class FloatSummation:
 
         print('mant_add_sign', mant_add_sign)
         print('mant_add_nocarry', mant_add_nocarry)
-        print('mant_add_nocarry', -mant_add_nocarry)
+        print('inv mant_add_nocarry', -mant_add_nocarry)
         print('mant_add_before_sign', mant_add_result_before_sign_remove)
         print('mant_add_result', repr(mant_add_result))
 
         # Leading zero count for close path
         # to sum_bit - 8
         # FIX: rshamt: 6~ (hand calculation)
-        if mant_add_result[sum_bit-3].bin == '1':
-            rshamt = 6
-            print('Im in 6')
-        elif mant_add_result[sum_bit-4].bin == '1':
-            rshamt = 5
-            print('Im in 5')
-        elif mant_add_result[sum_bit-5].bin == '1':
-            rshamt = 4
-            print('Im in 4')
-        elif mant_add_result[sum_bit-6].bin == '1':
-            rshamt = 3
-            print('Im in 3')
-        elif mant_add_result[sum_bit-7].bin == '1':
-            rshamt = 2
-            print('Im in 2')
-        elif mant_add_result[sum_bit-8].bin == '1':
-            rshamt = 1
-            print('Im in 1')
-        else:
-            rshamt = 0
-            print('Im far path')
+        for i in range(tree_level):
+            if mant_add_result[sum_bit-(i+3)].bin == '1':
+                rshamt = adder_bit+1-(i+3)
 
         close_path = mant_add_result >> rshamt
     
         # Leading zero count for far path
-        clz_in = mant_add_result[sum_bit-9:0]
-        if bf16.hwutil.leading_zero_count(clz_in) < (sum_bit-8):
+        # clz_in is from point
+        # ex) for 64 entries, last rshamt = 9, which is sum_bit - (tree_level + 3) where tree level = 6
+        clz_in = mant_add_result[sum_bit-(tree_level+3):0]
+        if bf16.hwutil.leading_zero_count(clz_in) < (sum_bit-precision_bit):
             lshamt = bf16.hwutil.leading_zero_count(clz_in)
         else:
             lshamt = 0
@@ -246,8 +234,6 @@ class FloatSummation:
             t_exp = bf16.ubit(8, bin(int(o_max_exp) + rshamt))
         else:
             t_exp = bf16.ubit(8, bin(int(o_max_exp) - lshamt))
-        
-        print('rshamt', rshamt)
         
         # Post normalization
         out_sign = bf16.bit(1, mant_add_sign.bin)

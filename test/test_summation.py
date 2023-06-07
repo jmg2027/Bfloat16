@@ -2,28 +2,38 @@ from bf16.bf16 import Bfloat16 as bf16
 from test.utils import *
 
 bf16_mant_max = float(bf16(0, 0, 127))
+#vector_element_num = 64
+vector_element_num = 4
 
+#test_set = [
+#    [
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+#     ],
+#    [
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max
+#     ]
+#]
 test_set = [
     [
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+1.0, 1.0, 1.0, 1.0
      ],
     [
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
-bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max
-     ]
+1.0, 2.0, 4.0, 8.0
+     ],
 ]
 #        self.input_vector = [
 #            bf16.Bfloat16.float_to_bf16(1.0),
@@ -78,7 +88,7 @@ def rand_test(times: int):
     fail_list = []
     for i in range(times):
         vector = list()
-        for i in range(64):
+        for i in range(vector_element_num):
             #vector.append(float(random_bf16()))
             vector.append(float(random_bf16_range(-4, 4)))
         test_res_str = test_summation(vector)
