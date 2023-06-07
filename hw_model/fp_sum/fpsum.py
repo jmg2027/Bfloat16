@@ -3,18 +3,6 @@ import bf16.bf16 as bf16
 # Summation Unit
 
 '''
-FMUL
-Floating point multiplyer
-sign: 8 sign bits are xored
-exp: 9 exps, including previous ACC result goes in max tree
-8 sum of exps (mul_exp)
-mant:
-8 mans multiplies, h m m m m m m m 0 0 0 (11bits)
-mant is signed
-mul res: 22bits
-With sign bit, previous ACC is being negated or not
-'''
-'''
 Align shifter
 Tree architecture
 SQNR difference
@@ -52,6 +40,10 @@ class FloatSummation:
     64(32) BF16 vectors
     16 bits accumulator
     '''
+    '''
+    FIX: Number of vector input to power of 2(n)
+    FIX: ACC can be FP32/BF16, output also
+    '''
     
     align_bitwidth = 32
     def __init__(self, vector):
@@ -60,7 +52,7 @@ class FloatSummation:
         # This is for test
 
     def set_align_bitwidth(self, n: int):
-        # Should set align bitwidth more than 8
+        # Should set align bitwidth more than 10: mantissa bits + hidden bit + 
         self.align_bitwidth = n
 
     def summation(self):
@@ -127,17 +119,19 @@ class FloatSummation:
         # Acc shift
         shamt.append(int(o_max_exp - exp_acc_signed))
 
-        # mantissa: x.xxx_xxxx
+        # mantissa: h.mmm_mmmm
         # shifted mantissa: x.xxx_xxxx_xxxx_...._xxxx
         #                   < align shifter length  >
-        # align_bitwidth - mantissa_bits - 1 - 1
-        # 64 entries -> 6 bits
+        # append zero to LSB amount: align_bitwidth - (mantissa bits + hidden bit + 1)
+        # 64 entries -> add 6 bits
         # Extend to align shifter length+C+S+6
         # Extended mantissa: 0000_0000_h.mmm_mmmm0_...._0000
         #                    <   align shifter length+8  >
+        # Make 2's complement
         # Make mantissa to signed bitstring
         # signed mantissa: SSSS_SSSS_h.mmm_mmmm_...._xxxx
         #                  < align shifter length+8 >
+        # Alignment shift
         # added mantissa: CSxx_xxxx_x.xxx_xxxx_...._xxxx
         #                 <   align shifter length+8   >
         # Carry bit is not used, so remove it
@@ -145,14 +139,18 @@ class FloatSummation:
         sum_bit = align_bit + 8
         mant_v_sign = []
         for i in range(len(sign_v)):
-            mant_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_v_us[i]}{(align_bit - 9) * "0"}')
+            mant_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_v_us[i]}{(align_bit - 8) * "0"}')
             if sign_v[i] == bf16.bit(1, '1'):
                 mant_v_sign.append(-mant_sign)
             else:
                 mant_v_sign.append(mant_sign)
         # accumulator
-        mant_acc_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_acc_us}{(align_bit - 9) * "0"}')
-        mant_v_sign.append(mant_acc_sign)
+        mant_acc_sign = bf16.sbit(sum_bit, f'{8 * "0"}{mant_acc_us}{(align_bit - 8) * "0"}')
+        if sign_acc == bf16.bit(1, '1'):
+            mant_v_sign.append(-mant_acc_sign)
+        else:
+            mant_v_sign.append(mant_acc_sign)
+        print('mant_v_sign', mant_v_sign)
 
         # mantissa shift
         # shifted & signed mantissa: Sx.xxx_xxxx_xxxx_...._xxxx
@@ -182,32 +180,39 @@ class FloatSummation:
         # mantissa result before sign removal: Sxx_xxxx.xxxx_xxxx_...._xxxx
         # mantissa result: xx_xxxx.xxxx_xxxx_...._xxxx
         #                  <  align shifter length+6 >
-        mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign else mant_add_nocarry.bin}')
+        mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign == bf16.bit(1, "1") else mant_add_nocarry.bin}')
         mant_add_result = mant_add_result_before_sign_remove[sum_bit-3:0]
+
+        print('mant_add_sign', mant_add_sign)
+        print('mant_add_nocarry', mant_add_nocarry)
+        print('mant_add_nocarry', -mant_add_nocarry)
+        print('mant_add_before_sign', mant_add_result_before_sign_remove)
+        print('mant_add_result', repr(mant_add_result))
 
         # Leading zero count for close path
         # to sum_bit - 8
+        # FIX: rshamt: 6~ (hand calculation)
         if mant_add_result[sum_bit-3].bin == '1':
+            rshamt = 6
+            print('Im in 6')
+        elif mant_add_result[sum_bit-4].bin == '1':
             rshamt = 5
             print('Im in 5')
-        elif mant_add_result[sum_bit-4].bin == '1':
+        elif mant_add_result[sum_bit-5].bin == '1':
             rshamt = 4
             print('Im in 4')
-        elif mant_add_result[sum_bit-5].bin == '1':
+        elif mant_add_result[sum_bit-6].bin == '1':
             rshamt = 3
             print('Im in 3')
-        elif mant_add_result[sum_bit-6].bin == '1':
+        elif mant_add_result[sum_bit-7].bin == '1':
             rshamt = 2
             print('Im in 2')
-        elif mant_add_result[sum_bit-7].bin == '1':
+        elif mant_add_result[sum_bit-8].bin == '1':
             rshamt = 1
             print('Im in 1')
-        elif mant_add_result[sum_bit-8].bin == '1':
-            rshamt = 0
-            print('Im in 0')
         else:
             rshamt = 0
-            print('Im in else')
+            print('Im far path')
 
         close_path = mant_add_result >> rshamt
     
@@ -223,27 +228,32 @@ class FloatSummation:
         far_path = clz_in << lshamt
         rnd_in = far_path if rshamt == 0 else close_path
 
-        # round in: x.xxxx_xxxx_xxxx_...._xxxx
-        #                  < align shifter length+1 >
+        # round in: 1.xxxx_xxx|R_ssss_...._xxxx
+        #                  < align shifter length >
+        # FIX: rnd_in bit
         print('rnd_in: ', rnd_in)
-        rnd = rnd_in[7]
-        sticky = rnd_in[6:0].reduceor()
-        round = (rnd & sticky) | (rnd_in[8] & rnd & ~sticky)
+        round_bitpos = 1+bf16.Bfloat16.mantissa_bits+1
+        rnd = rnd_in[align_bit-round_bitpos]
+        sticky = rnd_in[align_bit-round_bitpos-1:0].reduceor()
+        round = (rnd & sticky) | (rnd_in[align_bit-round_bitpos+1] & rnd & ~sticky)
 
-        normed = bf16.ubit(align_bit+1, (rnd_in + (round << 7)).bin)
+        normed = bf16.ubit(align_bit+1, (rnd_in + (round << round_bitpos)).bin)
 
         if zero_mant_result:
             t_exp = bf16.ubit(8, '0')
         elif rshamt > 0:
-            t_exp = bf16.ubit(8, bin(int(o_max_exp) + rshamt + 2))
+            t_exp = bf16.ubit(8, bin(int(o_max_exp) + rshamt))
         else:
-            t_exp = bf16.ubit(8, bin(int(o_max_exp) + 2 - lshamt))
+            t_exp = bf16.ubit(8, bin(int(o_max_exp) - lshamt))
+        
+        print('rshamt', rshamt)
         
         # Post normalization
-        out_sign = mant_add_sign
+        out_sign = bf16.bit(1, mant_add_sign.bin)
         out_exp = t_exp + 1 if normed[align_bit].bin == 1 else t_exp
         # 7bits of fraction
         out_frac = normed[align_bit-1:align_bit-7] if normed[align_bit].bin == 1 else normed[align_bit-2:align_bit-8]
+        print('postnorm flag', normed[align_bit].bin)
 
         print(out_sign, out_exp, out_frac)
         print(repr(out_sign))
