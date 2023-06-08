@@ -244,8 +244,10 @@ class FloatSummation:
         rnd = rnd_in[align_bit-round_bitpos]
         sticky = rnd_in[align_bit-round_bitpos-1:0].reduceor()
         round = (rnd & sticky) | (rnd_in[align_bit-round_bitpos+1] & rnd & ~sticky)
+        print('round', repr(round))
 
-        normed = bf16.ubit(align_bit+1, (rnd_in + (round << round_bitpos)).bin)
+        round_up = round.concat(bf16.bit(align_bit - round_bitpos, '0'))
+        normed = bf16.ubit(align_bit+1, (rnd_in + round_up).bin)
 
         if zero_mant_result:
             t_exp = bf16.ubit(8, '0')
