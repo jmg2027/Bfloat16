@@ -47,6 +47,7 @@ class FloatSummation:
     '''
     
     align_bitwidth = 32
+    #align_bitwidth = 16 
     #vector_element_num = 64
     vector_element_num = 4
     def __init__(self, vector):
@@ -100,23 +101,34 @@ class FloatSummation:
         while element_num_shift != 1:
             element_num_shift = element_num_shift >> 1
             tree_level += 1
-        
-        print('tree', tree_level)
 
         # Exponent max tree
-        exp_max_tree = [[0] * (2**(tree_level-i-1)) for i in range(tree_level)]
+        # Make zero initialized dual list of tree
+        # [[0] * 2**(tree_level), [0] * 2**(tree_level-1), ..., [0]]
+        # Initialize first stage with exp_v_signed
+        # Compare previous stage (i) and record it to current stage(i+1)
+        exp_max_tree = [[0] * (2**(tree_level-i)) for i in range(tree_level+1)]
+        # Initialize
+        for i in range(len(exp_v_signed)):
+            exp_max_tree[0][i] = exp_v_signed[i]
+        # Compare and record
         for i in range(tree_level):
-            for j in range(len(exp_max_tree[i])):
-                exp_max_tree[i][j] = exp_v_signed[2*j] if exp_v_signed[2*j] > exp_v_signed[2*j+1] else exp_v_signed[2*j+1]
-        exp_max_vector = exp_max_tree[tree_level-1][0]
+            for j in range(len(exp_max_tree[i+1])):
+                exp_max_tree[i+1][j] = exp_max_tree[i][2*j] if (exp_max_tree[i][2*j] > exp_max_tree[i][2*j+1]) else exp_max_tree[i][2*j+1]
+        exp_max_vector = exp_max_tree[tree_level][0]
         o_max_exp = exp_max_vector if exp_max_vector > exp_acc_signed else exp_acc_signed
 
         # Align shifter
+        # Shift amount should be ceil(log2(align shifter width))
         shamt = []
         for i in range(len(exp_v_signed)):
             shamt.append(int(o_max_exp - exp_v_signed[i]))
         # Acc shift
         shamt.append(int(o_max_exp - exp_acc_signed))
+
+        print('exp max tree', exp_max_tree)
+        print('max exp', o_max_exp)
+        print('shamt', shamt)
 
         # mantissa: h.mmm_mmmm
         # shifted mantissa: x.xxx_xxxx_xxxx_...._xxxx
@@ -165,6 +177,8 @@ class FloatSummation:
             mant_aligned = mant_v_sign[i].arith_rshift(shamt[i])
             mant_v_aligned.append(mant_aligned)
 
+        print('mant_v_aligned', mant_v_aligned)
+
         # Adder tree
         # 64 entries -> 6 bits
         # added mantissa: CSxx_xxxx.xxxx_xxxx_...._xxxx
@@ -173,7 +187,6 @@ class FloatSummation:
         mant_add = bf16.sbit(sum_bit, '0')
         for i in range(len(mant_v_aligned)):
             mant_add = mant_add + mant_v_aligned[i]
-
 
         print('mant_add: ', repr(mant_add))
 
@@ -185,21 +198,22 @@ class FloatSummation:
         # mantissa result before sign removal: Sxx_xxxx.xxxx_xxxx_...._xxxx
         # mantissa result: xx_xxxx.xxxx_xxxx_...._xxxx
         #                  <  align shifter length+6 >
-        mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign == bf16.bit(1, "1") else mant_add_nocarry.bin}')
+        mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign == bf16.sbit(1, "1") else mant_add_nocarry.bin}')
         mant_add_result = mant_add_result_before_sign_remove[sum_bit-3:0]
 
-        print('mant_add_sign', mant_add_sign)
-        print('mant_add_nocarry', mant_add_nocarry)
-        print('inv mant_add_nocarry', -mant_add_nocarry)
-        print('mant_add_before_sign', mant_add_result_before_sign_remove)
+        print('mant_add_sign', repr(mant_add_sign))
+        print('mant_add_nocarry', repr(mant_add_nocarry))
+        print('inv mant_add_nocarry', repr(-mant_add_nocarry))
+        print('mant_add_before_sign', repr(mant_add_result_before_sign_remove))
         print('mant_add_result', repr(mant_add_result))
 
         # Leading zero count for close path
-        # to sum_bit - 8
-        # FIX: rshamt: 6~ (hand calculation)
+        # to sum_bit - (tree_level + 2)
+        # rshamt bitwidth = ceil(log2(tree_level))
+        rshamt = 0
         for i in range(tree_level):
             if mant_add_result[sum_bit-(i+3)].bin == '1':
-                rshamt = adder_bit+1-(i+3)
+                rshamt = tree_level - i
 
         close_path = mant_add_result >> rshamt
     
@@ -214,13 +228,18 @@ class FloatSummation:
         print('rshamt', rshamt)
         print('lshamt', lshamt)
         
-        far_path = clz_in << lshamt
+#        far_path = clz_in << lshamt
+        far_path = mant_add_result << lshamt
         rnd_in = far_path if rshamt == 0 else close_path
 
+        print('far_path', repr(far_path))
+        print('close_path', repr(close_path))
+
+        # Round
         # round in: 1.xxxx_xxx|R_ssss_...._xxxx
         #                  < align shifter length >
-        # FIX: rnd_in bit
-        print('rnd_in: ', rnd_in)
+        # How about using bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, )?
+        print('rnd_in: ', repr(rnd_in))
         round_bitpos = 1+bf16.Bfloat16.mantissa_bits+1
         rnd = rnd_in[align_bit-round_bitpos]
         sticky = rnd_in[align_bit-round_bitpos-1:0].reduceor()
@@ -243,7 +262,6 @@ class FloatSummation:
         print('postnorm flag', normed[align_bit].bin)
 
         print(out_sign, out_exp, out_frac)
-        print(repr(out_sign))
 
         summation = bf16.Bfloat16.compose_bf16(out_sign, out_exp, out_frac)
         return summation
