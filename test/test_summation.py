@@ -1,86 +1,121 @@
 from bf16.bf16 import Bfloat16 as bf16
-import numpy as np
-import tensorflow as tf
+from test.utils import *
 
-import test
+bf16_mant_max = float(bf16(0, 0, 127))
+# Match vector_element_num to FloatSummation.vector_element_num
+#vector_element_num = 64
+vector_element_num = 4
 
-def test_bf16_module():
-    test.test_bf16module.test()
+#test_set = [
+#    [
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+#1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+#     ],
+#    [
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max,
+#bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max, bf16_mant_max
+#     ]
+#]
+test_set = [
+#    [
+#1.0, 1.0, 1.0, 1.0
+#     ],
+#    [
+#1.0, 2.0, 4.0, 8.0
+#     ],
+#    [
+#1.0, 2.0, 3.0, 4.0
+#     ],
+#    [
+#-1.0, -1.0, -1.0, -1.0
+#     ],
+#    [
+#-1.0, -2.0, -4.0, -8.0
+#     ],
+#    [
+#-1.0, -2.0, -3.0, -4.0
+#     ],
+]
+#        self.input_vector = [
+#            bf16.Bfloat16.float_to_bf16(1.0),
+#            bf16.Bfloat16.float_to_bf16(-1.2),
+#            bf16.Bfloat16.float_to_bf16(4.0),
+#            bf16.Bfloat16.float_to_bf16(5.0),
+#            bf16.Bfloat16.float_to_bf16(-10.0),
+#            bf16.Bfloat16.float_to_bf16(-20.0),
+#            bf16.Bfloat16.float_to_bf16(30.0),
+#            bf16.Bfloat16.float_to_bf16(-100.0)
+#            ]
+#        self.weight_vector = [
+#            bf16.Bfloat16.float_to_bf16(2.0),
+#            bf16.Bfloat16.float_to_bf16(-4.2),
+#            bf16.Bfloat16.float_to_bf16(7.0),
+#            bf16.Bfloat16.float_to_bf16(-9.0),
+#            bf16.Bfloat16.float_to_bf16(10.0),
+#            bf16.Bfloat16.float_to_bf16(-20.0),
+#            bf16.Bfloat16.float_to_bf16(30.567),
+#            bf16.Bfloat16.float_to_bf16(-400.6)
 
-def test_pow():
-    test.test_power.test()
+def convert_element_to_bf16_array(vector: iter) -> iter:
+    bf16_vector = []
+    for element in vector:
+        bf16_vector.append(convert_to_bf16(element))
+    return bf16_vector
 
-def test_neg():
-    test.test_neg.test()
+def convert_element_to_tfbf16_array(vector: iter) -> iter:
+    tfbf16_vector = []
+    for element in vector:
+        tfbf16_vector.append(convert_to_tfbf16(element))
+    return tfbf16_vector
 
-def test_mul():
-    test.test_mul.test()
+def tf_reduce_sum(vec1):
+    return tf.reduce_sum(vec1)
 
-def test_add():
-    test.test_add.test()
+def test_summation(vector):
+    a = convert_element_to_bf16_array(vector)
+    bf16_res = bf16.summation(a)
+    tfa = convert_element_to_tfbf16_array(vector)
+    tfbf16_res = tf_reduce_sum(tfa)
 
-def test_fma():
-    test.test_fma.test()
+    if check_float_equal(bf16_res, tfbf16_res):
+        test_res_str = f'PASSED SUM({vector})'
+    else:
+        test_res_str = f'FAILED SUM({vector}), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
+    print(test_res_str)
+    return test_res_str
 
-def test_summation():
-    test.test_summation.test()
-
-def test_all():
-    test_bf16_module()
-    test_pow()
-    test_neg()
-    test_mul()
-    test_add()
-    test_fma()
-    test_summation()
-
-def test_rand_mul(times):
-    test.test_mul.rand_test(times)
+def rand_test(times: int):
+    # Generate 64 input random bf16
+    fail_list = []
+    for i in range(times):
+        vector = list()
+        for i in range(vector_element_num):
+            #vector.append(float(random_bf16()))
+            #vector.append(float(random_bf16_range(-4, 4)))
+            vector.append(float(random_bf16_range(-10, 10)))
+        test_res_str = test_summation(vector)
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
 
-def test_rand_add(times):
-    test.test_add.rand_test(times)
+def test():
+    fail_list = []
+    for vector_set in test_set:
+        test_res_str = test_summation(vector_set)
+        if check_fail_status(test_res_str):
+            fail_list.append(test_res_str)
+    check_fail_list(fail_list)
     return
-
-def test_rand_fma(times):
-    test.test_fma.rand_test(times)
-    return
-
-def test_rand_summation(times):
-    test.test_summation.rand_test(times)
-    return
-
-def test_random_all():
-    pass
-
-
-if __name__ == "__main__":
-#    test_mul()
-#    test_add()
-#    test_fma()
-#    test_summation()
-#    test_rand_mul(1000)
-#    test_rand_add(1000)
-#    test_rand_fma(1000)
-    test_rand_summation(10)
-#    a = -8.715097876569077e+29
-#    b = -9.769962616701378e-14
-#    c = -9.907919180215091e+16
-#    A = bf16.float_to_bf16(a)
-#    B = bf16.float_to_bf16(b)
-#    C = bf16.float_to_bf16(c)
-#    res = bf16.fma(A, B, C)
-#    print(res)
-#    test.test_fma.test_fma(a, b, c)
-#    A = bf16(0, 0, bf16.mant_max)
-#    B = bf16(0, 0, bf16.mant_max)
-#    print(A)
-#    print(B)
-#    a = float(A)
-#    b = float(B)
-#    test.test_add.test_add(a, b)
-
-#    print(C)
-#    tfc = test.test_fma.convert_to_tfbf16(c)
-#    print(tfc)
-    pass
