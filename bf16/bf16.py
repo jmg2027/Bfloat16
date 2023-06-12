@@ -124,9 +124,9 @@ class Bfloat16:
         return Bfloat16(sign, exponent, mantissa)
 
     @classmethod
-    def float_to_bf16(cls, float: float) -> 'Bfloat16':
+    def float_to_bf16(cls, fp: float) -> 'Bfloat16':
         bf16_bias = cls.bias
-        bf16_sign, bf16_exp_before_bias, fp32_mant = util.decomp_fp32(float)
+        bf16_sign, bf16_exp_before_bias, fp32_mant = util.decomp_fp32(float(fp))
         bf16_exp, bf16_mant = util.round_and_postnormalize(bf16_exp_before_bias, fp32_mant, 23, 7)
         bf16_exp = bf16_exp - bf16_bias
         return Bfloat16(bf16_sign, bf16_exp, bf16_mant)
