@@ -7,7 +7,7 @@ def convert_to_bf16(num: float):
     return bf16.float_to_bf16(num)
 
 def convert_to_tfbf16(num: float):
-    return tf.cast(num, tf.bfloat16)
+    return tf.cast(float(num), tf.bfloat16)
 
 def check_float_equal(res1, res2):
     # nan cannot compare
