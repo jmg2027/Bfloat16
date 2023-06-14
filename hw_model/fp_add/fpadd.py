@@ -202,6 +202,8 @@ class FloatAddition:
             if ret_exp_2[bf16.Bfloat16.exponent_bits + 1:0] >= bf16.sbit(bf16.Bfloat16.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_2 = bf16.sbit(bf16.Bfloat16.exponent_bits, bin((bf16.Bfloat16.exp_max + bf16.Bfloat16.bias)))
                 ret_mant_3 = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
+            # BF16 assumes denormalized number as zero
+            # There is no denormalized output in addition
             # Underflow case: make zero
             # ret_exp_2: 11_0000_0000 ~
             elif ret_exp_2[bf16.Bfloat16.exponent_bits + 1:0] <= bf16.sbit(bf16.Bfloat16.exponent_bits + 1, bin(0)):
