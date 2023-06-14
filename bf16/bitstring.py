@@ -291,6 +291,8 @@ class BitString:
         return self.__class__(self.bitwidth, '0' * n + self.bin[0:self.bitwidth-n])
 
     def arith_rshift(self, n: int):
+        if n > self.bitwidth:
+            return self.__class__(self.bitwidth, self.bin[0] * self.bitwidth)
         # string [:-0] returns '', so - slicing should not be used
         return self.__class__(self.bitwidth, self.bin[0] * n + self.bin[0:self.bitwidth-n])
 
