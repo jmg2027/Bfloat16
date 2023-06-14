@@ -1,6 +1,4 @@
 import bf16.bf16 as bf16
-from bf16.bf16 import sbit
-from bf16.bf16 import bit
 
 class FloatPowerofTwo:
     
@@ -94,3 +92,22 @@ class FloatNegative:
         # Compose BF16
         neg = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
         return neg
+
+
+class FloatFPtoInt:
+    """
+    FloatFPtoInt
+    Bfloat16 -> Int
+    """
+    def __init__(self) -> None:
+        pass
+
+
+class FloatInttoFP:
+    """
+    FloatInttoFP
+    Int -> Bfloat16
+    """
+    def __init__(self) -> None:
+        pass
+
