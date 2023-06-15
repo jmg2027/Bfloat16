@@ -492,11 +492,14 @@ if __name__ == '__main__':
 #    d = '1111100'
 #    A = UnsignedBitString(11, a)
 #    B = UnsignedBitString(11, b)
-    A = SignedBitString(9, '000000000')
-    B = SignedBitString(9, bin(-256))
-    A = SignedBitString(10, '010000000')
-    B = SignedBitString(10, bin(-256))
+    A = UnsignedBitString(16, '0111111111111111')
+    B = UnsignedBitString(16, '1111111111111111')
+    A = SignedBitString(16, '0111111111111111')
+    B = SignedBitString(16, '1111111111111111')
+    print(A.bin)
+    print(B.bin)
     print(int(A))
+    print(int(B))
     print(A+B)
     print(int(A+B))
     pass
