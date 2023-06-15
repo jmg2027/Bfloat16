@@ -25,6 +25,12 @@ def test_fma():
 def test_summation():
     test.test_summation.test()
 
+def test_fptoint():
+    test.test_fptoint.test()
+
+def test_inttofp():
+    test.test_inttofp.test()
+
 def test_all():
     test_bf16_module()
     test_pow()
@@ -33,6 +39,8 @@ def test_all():
     test_add()
     test_fma()
     test_summation()
+    test_fptoint()
+    test_inttofp()
 
 def test_rand_mul(times):
     test.test_mul.rand_test(times)
@@ -50,6 +58,12 @@ def test_rand_summation(times):
     test.test_summation.rand_test(times)
     return
 
+def test_rand_fptoint(times):
+    test.test_fptoint.rand_test(times)
+
+def test_rand_inttofp(times):
+    test.test_inttofp.rand_test(times)
+
 def test_random_all():
     pass
 
@@ -58,8 +72,12 @@ if __name__ == "__main__":
 #    test_mul()
 #    test_add()
 #    test_fma()
-    test_summation()
+#    test_summation()
+#    test_fptoint()
+    test_inttofp()
 #    test_rand_mul(1000)
 #    test_rand_add(10000)
 #    test_rand_fma(10000)
 #    test_rand_summation(1000)
+#    test_rand_fptoint(1000)
+#    test_rand_inttofp(1000)
