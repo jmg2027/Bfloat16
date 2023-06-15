@@ -97,17 +97,136 @@ class FloatNegative:
 class FloatFPtoInt:
     """
     FloatFPtoInt
-    Bfloat16 -> Int
+    Bfloat16 -> Signed Integer (16bits output)
+    -32768~32767(0x8000 ~ 0x7FFF)
+    - Algorithm
+    exponent > 14: overflow -> positive: 0x7FFF, negative: 0x8000
+    else: shift mantissa as exponent
+    15 bits for integer without sign
+    7 bits for mantissa under point
+    1xx....xx   .   xxxxxxx
+    < 15bits><point>< mant>
     """
-    def __init__(self) -> None:
+    def __init__(self, a: 'bf16.Bfloat16') -> None:
+        self.a = a
         pass
+
+    def fptoint(self) -> int:
+        output_bitwidth = 1 + bf16.Bfloat16.exponent_bits + bf16.Bfloat16.mantissa_bits
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
+        a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'{a_exp.reduceor()}{a_mant_nohidden}')
+        a_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
+        bias_signed = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+
+        exp_unbiased = int(a_exp_signed - bias_signed)
+        mant_unshifted = bf16.ubit(output_bitwidth + bf16.Bfloat16.mantissa_bits - 1, a_mant_us.bin)
+
+        # without sign bit
+        # int(no sign) 15 + mant 7
+        mant_shifted = mant_unshifted << exp_unbiased
+        int_trunc = mant_shifted[output_bitwidth + bf16.Bfloat16.mantissa_bits - 2:bf16.Bfloat16.mantissa_bits]
+        int_before_sign = bf16.sbit(output_bitwidth, f'0{str(int_trunc)}')
+
+        if exp_unbiased > output_bitwidth - 2:
+            if a_sign == bf16.bit(1, '1'):
+                int_result = bf16.sbit(output_bitwidth, bin(0x8000))
+            else:
+                int_result = bf16.sbit(output_bitwidth, bin(0x7FFF))
+        elif exp_unbiased < 0:
+            int_result = bf16.sbit(output_bitwidth, '0')
+        else:
+            twos_comp = -int_before_sign
+            if a_sign == bf16.bit(1, '1'):
+                int_result = twos_comp
+            else:
+                int_result = int_before_sign
+        return int(int_result)
 
 
 class FloatInttoFP:
     """
     FloatInttoFP
     Int -> Bfloat16
+    - Algorithm
+    save sign and make two's complement
+    15 bits for integer without sign
+    7 bits for mantissa under point
+    8 bits for round/sticky
+    1xx....xx   .   xxxxxxx rsssssss
+    < 15bits><point>< mant> <  r/s >
+    shift to right until int_shifted[16 + 7 - 2:7 + 2] are all zero
+    [output_bitwidth + bf16.Bfloat16.mantissa_bits - 2:bf16.Bfloat.mantissa_bits + 2]
+    remains are mantissa
+    shift amount is exponent
     """
-    def __init__(self) -> None:
+    sticky_bits = 6
+    def __init__(self, a: int) -> None:
+        self.a = a
         pass
 
+    def set_sticky_bits(self, n: int) -> None:
+        self.sticky_bits = n
+        return
+
+    def inttofp(self) -> 'bf16.Bfloat16':
+        output_bitwidth = 1 + bf16.Bfloat16.exponent_bits + bf16.Bfloat16.mantissa_bits
+        round_bits = self.sticky_bits + 1
+        a = self.a
+        a_bitstring = bf16.sbit(output_bitwidth, bin(a))
+        a_sign = bf16.ubit(1, a_bitstring[output_bitwidth-1].bin)
+
+        if a_sign == bf16.ubit(1, '1'):
+            a_unsigned = -a_bitstring
+        else:
+            a_unsigned = a_bitstring
+
+        # remove sign bit
+        int_unsigned = bf16.ubit(output_bitwidth-1, a_unsigned[output_bitwidth-2:0].bin)
+        # extend shifted register
+        int_shifted = int_unsigned.concat(bf16.ubit(bf16.Bfloat16.mantissa_bits + round_bits, '0'))
+        a_exp_preshift = bf16.ubit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.bias))
+        shift_amount = 0
+        int_shift_bitwidth = (output_bitwidth-1) + bf16.Bfloat16.mantissa_bits + round_bits
+
+        while(1):
+            zero_detect = int_shifted[int_shift_bitwidth-1:bf16.Bfloat16.mantissa_bits + 1 + round_bits].reduceor()
+            if zero_detect.bin == '0':
+                break
+            else:
+                int_shifted = int_shifted >> 1
+                shift_amount = shift_amount + 1
+        #print(repr(int_shifted))
+        
+        a_exp_preround = a_exp_preshift + bf16.ubit(bf16.Bfloat16.exponent_bits, bin(shift_amount))
+
+        int_mant_part = int_shifted[bf16.Bfloat16.mantissa_bits + round_bits:0]
+        #print(repr(int_mant_part))
+
+        # round and postnormalize
+        if int_mant_part[bf16.Bfloat16.mantissa_bits + round_bits:round_bits-1].bin == '111111111':
+            a_exp = a_exp_preround + bf16.ubit(bf16.Bfloat16.exponent_bits, '1')
+            int_shifted_rounded = bf16.ubit(bf16.Bfloat16.mantissa_bits+1, '10000000')
+        else:
+            a_exp = a_exp_preround
+            int_shifted_rounded = bf16.hwutil.round_to_nearest_even_bit(int_mant_part, bf16.Bfloat16.mantissa_bits+1)
+        
+        a_mant = int_shifted_rounded[bf16.Bfloat16.mantissa_bits-1:0]
+
+        # check for zero input
+        a_is_zero = (a_bitstring.reduceor() == bf16.bit(1, '0'))
+
+        if a_is_zero:
+            ret_sign = bf16.ubit(1, '0')
+            ret_exp = bf16.ubit(bf16.Bfloat16.exponent_bits, '0')
+            ret_mant = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
+        else:
+            ret_sign = a_sign
+            ret_exp = a_exp
+            ret_mant = a_mant
+
+        #print(ret_sign)
+        #print(ret_exp)
+        #print(ret_mant)
+
+        inttofp = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
+        return inttofp
