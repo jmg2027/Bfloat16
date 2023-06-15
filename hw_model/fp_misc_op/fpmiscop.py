@@ -151,11 +151,10 @@ class FloatInttoFP:
     save sign and make two's complement
     15 bits for integer without sign
     7 bits for mantissa under point
-    8 bits for round/sticky
-    1xx....xx   .   xxxxxxx rsssssss
+    7 bits for round/sticky
+    1xx....xx   .   xxxxxxx rssssss
     < 15bits><point>< mant> <  r/s >
-    shift to right until int_shifted[16 + 7 - 2:7 + 2] are all zero
-    [output_bitwidth + bf16.Bfloat16.mantissa_bits - 2:bf16.Bfloat.mantissa_bits + 2]
+    find leading one and shift mantissa
     remains are mantissa
     shift amount is exponent
     """
@@ -182,20 +181,54 @@ class FloatInttoFP:
 
         # remove sign bit
         int_unsigned = bf16.ubit(output_bitwidth-1, a_unsigned[output_bitwidth-2:0].bin)
-        # extend shifted register
-        int_shifted = int_unsigned.concat(bf16.ubit(bf16.Bfloat16.mantissa_bits + round_bits, '0'))
+        # extend shift register
+        int_extended = int_unsigned.concat(bf16.ubit(bf16.Bfloat16.mantissa_bits + round_bits, '0'))
         a_exp_preshift = bf16.ubit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.bias))
         shift_amount = 0
         int_shift_bitwidth = (output_bitwidth-1) + bf16.Bfloat16.mantissa_bits + round_bits
 
-        while(1):
-            zero_detect = int_shifted[int_shift_bitwidth-1:bf16.Bfloat16.mantissa_bits + 1 + round_bits].reduceor()
-            if zero_detect.bin == '0':
-                break
-            else:
-                int_shifted = int_shifted >> 1
-                shift_amount = shift_amount + 1
-        #print(repr(int_shifted))
+        # find leading one in [int_shift_bitwidth - 1:int_shift_bitwidth - (output_bitwidth-2)] 
+        # [28:15]
+        if int_extended[int_shift_bitwidth-1] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 2
+        elif int_extended[int_shift_bitwidth-2] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 3
+        elif int_extended[int_shift_bitwidth-3] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 4
+        elif int_extended[int_shift_bitwidth-4] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 5
+        elif int_extended[int_shift_bitwidth-5] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 6
+        elif int_extended[int_shift_bitwidth-6] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 7
+        elif int_extended[int_shift_bitwidth-7] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 8
+        elif int_extended[int_shift_bitwidth-8] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 9
+        elif int_extended[int_shift_bitwidth-9] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 10
+        elif int_extended[int_shift_bitwidth-10] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 11
+        elif int_extended[int_shift_bitwidth-11] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 12
+        elif int_extended[int_shift_bitwidth-12] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 13
+        elif int_extended[int_shift_bitwidth-13] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 14
+        elif int_extended[int_shift_bitwidth-14] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 15
+        else:
+            shift_amount = 0
+
+        int_shifted = int_extended >> shift_amount
+
+#        while(1):
+#            zero_detect = int_shifted[int_shift_bitwidth-1:bf16.Bfloat16.mantissa_bits + 1 + round_bits].reduceor()
+#            if zero_detect.bin == '0':
+#                break
+#            else:
+#                int_shifted = int_shifted >> 1
+#                shift_amount = shift_amount + 1
         
         a_exp_preround = a_exp_preshift + bf16.ubit(bf16.Bfloat16.exponent_bits, bin(shift_amount))
 
