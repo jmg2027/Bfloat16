@@ -10,6 +10,8 @@ from bf16.bitstring import UnsignedBitString as ubit
 
 from hw_model.fp_misc_op.fpmiscop import FloatPowerofTwo as Pow
 from hw_model.fp_misc_op.fpmiscop import FloatNegative as Neg
+from hw_model.fp_misc_op.fpmiscop import FloatFPtoInt as FPtoInt
+from hw_model.fp_misc_op.fpmiscop import FloatInttoFP as InttoFP
 from hw_model.fp_mul.fpmul import FloatMultiplication as Mul
 from hw_model.fp_add.fpadd import FloatAddition as Add
 from hw_model.fp_fma.fpfma import FloatFMA as Fma
@@ -194,9 +196,23 @@ class Bfloat16:
 
     def __int__(self) -> int:
         # extract integer part
-        # HW comp
-        # first software version
         return int(float(self))
+    
+    def fptoint(self) -> int:
+        # HW component
+        # Exists in fpmiscop
+        fptoint_obj = FPtoInt(self)
+        return fptoint_obj.fptoint()
+    
+    @classmethod
+    def inttofp(cls, i: int) -> 'Bfloat16':
+        # HW component
+        # Exists in fpmiscop
+        # Assuming 16-bit integer
+        if (len(bin(i))-2) > 16:
+            raise TypeError("Bfloat16 inttofp accepts only 16-bit integer")
+        inttofp_obj = InttoFP(i)
+        return inttofp_obj.inttofp()
     
     def pow(self, n: int) -> 'Bfloat16':
         if not isinstance(n, int):
