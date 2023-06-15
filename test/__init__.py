@@ -5,3 +5,5 @@ from . import test_power
 from . import test_add
 from . import test_fma
 from . import test_summation
+from . import test_fptoint
+from . import test_inttofp
