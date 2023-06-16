@@ -14,4 +14,4 @@ Todo
 - d=FMA(a, b, c)/ a, b: BF16, c,d: FP32
 - d=FMA(a, b, c)/ a, b: BF16, c,d: BF16
 - d=FMA(a, b, c)/ a, b, c, d: FP32
-- Reserve Bfloat16 git, and make Bfloat16+Float32 git for FP32 support
+- Reserve bf16_only branch. Work FP32 in main
