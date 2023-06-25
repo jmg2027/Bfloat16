@@ -13,7 +13,7 @@ class FloatPowerofTwo:
 
     def power(self) -> 'bf16.Bfloat16':
         # Decompose Bfloat16 to BitString
-        a_sign, a_exp, a_mant = self.a.decompose_bf16()
+        a_sign, a_exp, a_mant = self.a.decompose()
 
         # Exponent to signed bitstring for n to be negative
         # +1 for sign bit
@@ -77,7 +77,7 @@ class FloatNegative:
 
     def negative(self) -> 'bf16.Bfloat16':
         # Decompose Bfloat16 to BitString class
-        a_sign, a_exp, a_mant = self.a.decompose_bf16()
+        a_sign, a_exp, a_mant = self.a.decompose()
 
         # neg -> pos
         ret_exp = a_exp
@@ -113,7 +113,7 @@ class FloatFPtoInt:
 
     def fptoint(self) -> int:
         output_bitwidth = 1 + bf16.Bfloat16.exponent_bits + bf16.Bfloat16.mantissa_bits
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
         a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'{a_exp.reduceor()}{a_mant_nohidden}')
         a_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
         bias_signed = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
@@ -263,3 +263,37 @@ class FloatInttoFP:
 
         inttofp = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
         return inttofp
+
+
+class FloatBfloat16toFloat32:
+    def __init__(self, a: 'bf16.Bfloat16'):
+        self.a = a
+        pass
+
+    def bf16_to_fp32(self):
+        # Decompose Bfloat16 to BitString
+        a_sign, a_exp, a_mant = self.a.decompose()
+        mant_diff_bit = bf16.Float32.mantissa_bits - bf16.Bfloat16.mantissa_bits
+
+        ret_sign = a_sign
+        ret_exp = a_exp
+        ret_mant = a_mant.concat(bf16.ubit(mant_diff_bit, '0'))
+
+        return bf16.Float32.compose_fp32(ret_sign, ret_exp, ret_mant)
+
+
+class FloatFloat32toBfloat16:
+    def __init__(self, a: 'bf16.Float32'):
+        self.a = a
+        pass
+
+    def fp32_to_bf16(self):
+        # Decompose Float32 to BitString
+        a_sign, a_exp, a_mant = self.a.decompose()
+        mant_diff_bit = bf16.Float32.mantissa_bits - bf16.Bfloat16.mantissa_bits
+
+        ret_sign = a_sign
+        ret_exp = a_exp
+        ret_mant = bf16.hwutil.round_to_nearest_even_bit(a_mant, 7)
+
+        return bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)

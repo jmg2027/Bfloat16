@@ -9,9 +9,9 @@ class FloatFMA:
         self.c = c
 
     def fma(self) -> 'bf16.Bfloat16':
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose_bf16()
-        c_sign, c_exp, c_mant_nohidden = self.c.decompose_bf16()
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
+        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
+        c_sign, c_exp, c_mant_nohidden = self.c.decompose()
         a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant_us = bf16.ubit(self.b.mantissa_bits + 1, f'1{b_mant_nohidden}')
         c_mant_us = bf16.ubit(self.c.mantissa_bits + 1, f'1{c_mant_nohidden}')

@@ -1,4 +1,5 @@
 from bf16.bf16 import Bfloat16 as bf16
+from bf16.bf16 import Float32 as fp32
 import numpy as np
 import tensorflow as tf
 
@@ -23,17 +24,21 @@ import tensorflow as tf
 #print((p+C).decompose_bf16())
 
 A = bf16.float_to_bf16(-0.00173187255859375)
-B = bf16.float_to_bf16(744.0)
+B = fp32.float_to_fp32(744.0)
 C = bf16.float_to_bf16(-744.0)
-D = bf16.float_to_bf16(0.00811767578125)
+D = fp32.float_to_fp32(0.00811767578125)
 E = bf16.float_to_bf16(0.00640869)
 
-print(A)
-print(B)
-print(C)
-print(D)
+#print(A)
+#print(B)
+#print(C)
+#print(D)
+#
+print(A+C)
+print(B+D)
+#print(A+B+C+D)
+#print(E)
 
-print(B+C)
-print(A+D)
-print(A+B+C+D)
-print(E)
+print(A.bf16_to_fp32())
+print(B)
+print(B.fp32_to_bf16())

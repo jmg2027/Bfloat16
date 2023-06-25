@@ -79,9 +79,9 @@ class FloatMRU:
         # Decompose elements
 #        decompsed_vector = (map(bf16.Bfloat16.decompose_bf16, self.vector_elements))
 #        sign_v, exp_v, mant_v = zip(*decompsed_vector)
-        sign_i, exp_i, mant_i = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.input_vector))))
-        sign_w, exp_w, mant_w = list(zip(*(map(bf16.Bfloat16.decompose_bf16, self.weight_vector))))
-        sign_acc, exp_acc, mant_nohidden_acc = self.acc.decompose_bf16()
+        sign_i, exp_i, mant_i = list(zip(*(map(bf16.Bfloat16.decompose, self.input_vector))))
+        sign_w, exp_w, mant_w = list(zip(*(map(bf16.Bfloat16.decompose, self.weight_vector))))
+        sign_acc, exp_acc, mant_nohidden_acc = self.acc.decompose()
         exp_acc_signed = bf16.sbit(bf16.Bfloat16.exponent_bits + 2, f'0{exp_acc.bin}')
         # Treat acc as fp32 in module -> mantissa to 24bits
         mant_acc_us = bf16.ubit(24, f'1{mant_nohidden_acc.bin}{16*"0"}')

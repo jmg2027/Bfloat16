@@ -7,8 +7,8 @@ class FloatMultiplication:
 
     def multiply(self):
         # Decompose Bfloat16 to bitstring class
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose_bf16()
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
+        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
         a_mant = bf16.bit(self.a.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant = bf16.bit(self.b.mantissa_bits + 1, f'1{b_mant_nohidden}')
 

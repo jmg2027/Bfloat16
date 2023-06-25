@@ -9,9 +9,9 @@ class FloatFMA:
         self.c = c
 
     def fma(self) -> 'bf16.Bfloat16':
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose_bf16()
-        c_sign, c_exp, c_mant_nohidden = self.c.decompose_bf16()
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
+        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
+        c_sign, c_exp, c_mant_nohidden = self.c.decompose()
         a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant_us = bf16.ubit(self.b.mantissa_bits + 1, f'1{b_mant_nohidden}')
         c_mant_us = bf16.ubit(self.c.mantissa_bits + 1, f'1{c_mant_nohidden}')
@@ -92,19 +92,19 @@ class FloatFMA:
                 p_mant_us.__ilshift__(1)
 
                 
-            #print('c_exp_signed:',c_exp_signed)
-            #print('c_exp_signed:',p_exp_signed)
+            print('c_exp_signed:',c_exp_signed)
+            print('c_exp_signed:',p_exp_signed)
             # Exponent difference
             exp_diff = c_exp_signed - p_exp_signed
             exp_diff_abs = abs(int(exp_diff))
 
             # Set flags
-            #print('exp_diff', exp_diff)
+            print('exp_diff', exp_diff)
             c_exp_gt_p = exp_diff > bf16.sbit(1, '0')
             c_exp_eq_p = exp_diff == bf16.sbit(1, '0')
             c_mant_gt_p = (c_mant_us.concat(bf16.bit(precision_bit, '0'))) >= p_mant_us
-            #print(c_mant_us)
-            #print(p_mant_us)
+            print(c_mant_us)
+            print(p_mant_us)
 
             # Prenormalized Exponent
             if c_exp_gt_p:
@@ -183,12 +183,11 @@ class FloatFMA:
                     mant_add_in_c = mant_shift
                     mant_add_in_p = mant_unshift
 
-                #print('c>p', c_exp_gt_p)
-                #print('inv c', mant_inv_c)
-                #print(repr(mant_shift))
-                #print(repr(mant_unshift))
-                #print('mant_c_shft: ', mant_add_in_c)
-                #print('mant_p_shft: ', mant_add_in_p)
+                print('c>p', c_exp_gt_p)
+                print(repr(mant_shift))
+                print(repr(mant_unshift))
+                print('mant_c_shft: ', mant_add_in_c)
+                print('mant_p_shft: ', mant_add_in_p)
 
                 # Add mantissa (Including sub)
                 # mant_add[1+2p+3:0] (Including carry)
@@ -197,7 +196,7 @@ class FloatFMA:
                 sum = bf16.ubit(2 * precision_bit + 4, mant_add.bin)
 
             ret_mant_0 = sum
-            #print('fma_sum', repr(ret_mant_0))
+            print('fma_sum', repr(ret_mant_0))
             # CHECK: for mantissa carry bit (such as 1.xx... -> 01.xx... before addition)
 
             # Normalize with LZA shift amount when Sub
@@ -237,11 +236,14 @@ class FloatFMA:
 
             # Round and Postnormalization
             # Postnormalize: when mant = 1.111_1111_R (R = 1)
-            if ret_mant_2[ret_mant_2.bitwidth-1:2] == bf16.ubit(bf16.Bfloat16.mantissa_bits + 2, '1' * (bf16.Bfloat16.mantissa_bits + 2)):
+            postnorm_mant = ret_mant_2[ret_mant_2.bitwidth-1:ret_mant_2.bitwidth-bf16.Bfloat16.mantissa_bits-2]
+            postnorm_cond = bf16.ubit(bf16.Bfloat16.mantissa_bits + 2, '1' * (bf16.Bfloat16.mantissa_bits + 2))
+            if postnorm_mant == postnorm_cond:
                 ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
                 ret_mant_3 = bf16.ubit(8, '0')
             else:
                 # round
+                print('round')
                 ret_exp_2 = ret_exp_1
                 ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, 8)
 
@@ -268,11 +270,15 @@ class FloatFMA:
             #ret_mant = ret_mant_4 + bf16.ubit(2, '10')
             ret_mant = ret_mant_4
 
-            #print('mant 0', repr(ret_mant_0))
-            #print('mant 1', repr(ret_mant_1))
-            #print('mant 2', repr(ret_mant_2))
-            #print('mant 3', repr(ret_mant_3))
-            #print('mant 4', repr(ret_mant_4))
+            print('exp 0', repr(ret_exp_0))
+            print('exp 1', repr(ret_exp_1))
+            print('exp 2', repr(ret_exp_2))
+
+            print('mant 0', repr(ret_mant_0))
+            print('mant 1', repr(ret_mant_1))
+            print('mant 2', repr(ret_mant_2))
+            print('mant 3', repr(ret_mant_3))
+            print('mant 4', repr(ret_mant_4))
 
         else:
             ret_sign = ret_sign_0

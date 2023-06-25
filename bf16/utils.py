@@ -77,7 +77,7 @@ def convert_float_int(s: int, e: int, f: int, sign_bitpos: int = 63, exp_bits: i
 def bf16_ulp_dist(a, b):
     return abs((fp32_cast_int(a)>>16) - (fp32_cast_int(b)>>16))
 
-def float_to_bf16(x):
+def float_to_tfbf16(x):
     """_summary_
     convert fp32 to bf16 using tensorflow type casting
 
@@ -88,6 +88,12 @@ def float_to_bf16(x):
         _type_: bf16
     """
     return tf.cast(x, tf.bfloat16)
+ 
+def float_to_tffp32(x):
+    """_summary_
+    convert float to fp32 using tensorflow type casting
+    """
+    return tf.cast(x, tf.float32)
 
 """
 # This function is pseudo-code

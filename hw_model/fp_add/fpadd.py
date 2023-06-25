@@ -7,8 +7,8 @@ class FloatAddition:
 
     def add(self):
         # Decompose Bfloat16 to bitstring class
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose_bf16()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose_bf16()
+        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
+        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
         a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant_us = bf16.ubit(self.b.mantissa_bits + 1, f'1{b_mant_nohidden}')
 
@@ -183,6 +183,7 @@ class FloatAddition:
             # 1.111_1111
             if ret_mant_2[ret_mant_2.bitwidth-1:2] == bf16.ubit(bf16.Bfloat16.mantissa_bits + 2, '1' * (bf16.Bfloat16.mantissa_bits + 2)):
                 ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
+                # FIX
                 ret_mant_3 = bf16.ubit(8, '10000000')
             else:
                 # round

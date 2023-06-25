@@ -29,10 +29,10 @@ def test():
     #print(c.bf16_to_tfbf16())
     #print(c.bf16_to_fp32())
 
-    print(a.decompose_bf16())
-    print(b.decompose_bf16())
-    print(c.decompose_bf16())
-    print(d.decompose_bf16())
+    print(a.decompose())
+    print(b.decompose())
+    print(c.decompose())
+    print(d.decompose())
     return
 
 if __name__ == "__main__":
