@@ -3,12 +3,12 @@ import bf16.bf16 as bf16
 class FloatFMA:
     # https://repositories.lib.utexas.edu/bitstream/handle/2152/13269/quinnelle60861.pdf?sequence=2
     # a * b + c
-    def __init__(self, a: 'bf16.Bfloat16', b: 'bf16.Bfloat16', c: 'bf16.Bfloat16'):
+    def __init__(self, a: 'bf16.Float32', b: 'bf16.Float32', c: 'bf16.Float32'):
         self.a = a
         self.b = b
         self.c = c
 
-    def fma(self) -> 'bf16.Bfloat16':
+    def fma(self):
         a_sign, a_exp, a_mant_nohidden = self.a.decompose()
         b_sign, b_exp, b_mant_nohidden = self.b.decompose()
         c_sign, c_exp, c_mant_nohidden = self.c.decompose()
