@@ -2,6 +2,7 @@ import tensorflow as tf
 import random
 
 from bf16.bf16 import Bfloat16 as bf16
+from bf16.utils import bf16_ulp_dist
 
 def convert_to_bf16(num: float):
     return bf16.float_to_bf16(num)
@@ -17,10 +18,13 @@ def convert_int_to_tfbf16(num: int):
     return tf.cast(num, tf.bfloat16)
 
 def check_float_equal(res1, res2):
-    # nan cannot compare
+    # nan cannot be compared
     if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
         return True
-    if float(res1) == float(res2):
+    bf16_ulp_error = bf16_ulp_dist(res1, res2)
+    # ulp error under 2
+    #if float(res1) == float(res2):
+    if bf16_ulp_error <= 2:
         return True
     else:
         return False

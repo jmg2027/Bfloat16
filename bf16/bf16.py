@@ -185,12 +185,27 @@ class Bfloat16:
         return MRU.summation()
     
     @classmethod
-    def summation(cls, vector):
-        for v in vector:
-            if not isinstance(v, Bfloat16):
-                raise TypeError("All input vector operands should be Bfloat16 objects.")
-        summation = Summation(vector)
-        return summation.summation()
+    def summation(cls, vector_list):
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, Bfloat16):
+                    raise TypeError("All input vector operands should be Bfloat16 objects.")
+        # Convert to FP32
+        fp32_vector_list = [[cls.bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        summation = Summation(fp32_vector_list)
+        summation.set_acc(cls(0, -127, 0))
+        for v in summation.vector_list:
+            print('acc', summation.acc)
+            summation.set_vector(v)
+            acc = summation.summation()
+            summation.set_acc(acc)
+        return summation.acc
 
     # from_blahblah method
     # ex) from_fp32, from_fp64
@@ -210,11 +225,11 @@ class Bfloat16:
     def inttofp(cls, i: int) -> 'Bfloat16':
         # HW component
         # Exists in fpmiscop
-        # Assuming 16-bit integer
-        if (len(bin(i))-2) > 16:
-            raise TypeError("Bfloat16 inttofp accepts only 16-bit integer")
+        # Assuming 32-bit integer
+        if (len(bin(i))-2) > 32:
+            raise TypeError("Bfloat16 inttofp accepts only 32-bit integer")
         inttofp_obj = InttoFP(i)
-        return inttofp_obj.inttofp()
+        return inttofp_obj.inttofp().fp32_to_bf16()
     
     def pow(self, n: int) -> 'Bfloat16':
         if not isinstance(n, int):
@@ -408,14 +423,26 @@ class Float32:
                 raise TypeError("All weight vector operands should be Float32 objects.")
         mru = MRU(input_vector, weight_vector)
         return MRU.summation()
-    
+   
     @classmethod
-    def summation(cls, vector):
-        for v in vector:
-            if not isinstance(v, Float32):
-                raise TypeError("All input vector operands should be Float32 objects.")
-        summation = Summation(vector)
-        return summation.summation()
+    def summation(cls, vector_list):
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, Float32):
+                    raise TypeError("All input vector operands should be Float32 objects.")
+        summation = Summation(vector_list)
+        summation.set_acc(cls(0, -127, 0))
+        for v in summation.vector_list:
+            summation.set_vector(v)
+            acc = summation.summation()
+            summation.set_acc(acc)
+        return summation.acc 
 
     # from_blahblah method
     # ex) from_fp32, from_fp64

@@ -71,8 +71,8 @@ def test_random_all():
 if __name__ == "__main__":
 #    test_mul()
 #    test_add()
-    test_fma()
-#    test_summation()
+#    test_fma()
+    test_summation()
 #    test_fptoint()
 #    test_inttofp()
 #    test_rand_mul(1000)

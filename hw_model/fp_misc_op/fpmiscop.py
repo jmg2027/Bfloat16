@@ -7,11 +7,16 @@ class FloatPowerofTwo:
     For given a, return n power of 2
     a: Bfloat16, n: signed integer
     """
-    def __init__(self, a:'bf16.Bfloat16', n: int) -> None:
+    def __init__(self, a:'bf16.Float32', n: int) -> None:
         self.a = a
         self.n = n
 
-    def power(self) -> 'bf16.Bfloat16':
+    def power(self) -> 'bf16.Float32':
+        # If input is Bfloat16, bf16_to_fp32
+        # Make flag of bf16 input
+        bf16_input = isinstance(self.a, bf16.Bfloat16)
+        if bf16_input:
+            self.a = self.a.bf16_to_fp32()
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
 
@@ -61,7 +66,9 @@ class FloatPowerofTwo:
         ret_exp_bit_1 = bf16.bit(a_exp.bitwidth, ret_exp_1.bin)
 
         # Compose BF16
-        pow = bf16.Bfloat16.compose_bf16(ret_sign_1, ret_exp_bit_1, ret_mant_1)
+        pow = bf16.Float32.compose_fp32(ret_sign_1, ret_exp_bit_1, ret_mant_1)
+        if bf16_input:
+            pow = pow.fp32_to_bf16()
         return pow
 
 
@@ -76,6 +83,11 @@ class FloatNegative:
         self.a = a
 
     def negative(self) -> 'bf16.Bfloat16':
+        # If input is Bfloat16, bf16_to_fp32
+        # Make flag of bf16 input
+        bf16_input = isinstance(self.a, bf16.Bfloat16)
+        if bf16_input:
+            self.a = self.a.bf16_to_fp32()
         # Decompose Bfloat16 to BitString class
         a_sign, a_exp, a_mant = self.a.decompose()
 
@@ -90,7 +102,9 @@ class FloatNegative:
             raise ValueError('Sign bit must be 0 or 1')
 
         # Compose BF16
-        neg = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
+        neg = bf16.Float32.compose_bf16(ret_sign, ret_exp, ret_mant)
+        if bf16_input:
+            neg = neg.fp32_to_bf16()
         return neg
 
 
@@ -107,31 +121,37 @@ class FloatFPtoInt:
     1xx....xx   .   xxxxxxx
     < 15bits><point>< mant>
     """
-    def __init__(self, a: 'bf16.Bfloat16') -> None:
+    def __init__(self, a: 'bf16.Float32') -> None:
         self.a = a
         pass
 
     def fptoint(self) -> int:
-        output_bitwidth = 1 + bf16.Bfloat16.exponent_bits + bf16.Bfloat16.mantissa_bits
+        # If input is Bfloat16, bf16_to_fp32
+        # Make flag of bf16 input
+        bf16_input = isinstance(self.a, bf16.Bfloat16)
+        if bf16_input:
+            self.a = self.a.bf16_to_fp32()
+
+        output_bitwidth = 1 + bf16.Float32.exponent_bits + bf16.Float32.mantissa_bits
         a_sign, a_exp, a_mant_nohidden = self.a.decompose()
         a_mant_us = bf16.ubit(self.a.mantissa_bits + 1, f'{a_exp.reduceor()}{a_mant_nohidden}')
         a_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
         bias_signed = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
 
         exp_unbiased = int(a_exp_signed - bias_signed)
-        mant_unshifted = bf16.ubit(output_bitwidth + bf16.Bfloat16.mantissa_bits - 1, a_mant_us.bin)
+        mant_unshifted = bf16.ubit(output_bitwidth + bf16.Float32.mantissa_bits - 1, a_mant_us.bin)
 
         # without sign bit
         # int(no sign) 15 + mant 7
         mant_shifted = mant_unshifted << exp_unbiased
-        int_trunc = mant_shifted[output_bitwidth + bf16.Bfloat16.mantissa_bits - 2:bf16.Bfloat16.mantissa_bits]
+        int_trunc = mant_shifted[output_bitwidth + bf16.Float32.mantissa_bits - 2:bf16.Float32.mantissa_bits]
         int_before_sign = bf16.sbit(output_bitwidth, f'0{str(int_trunc)}')
 
         if exp_unbiased > output_bitwidth - 2:
             if a_sign == bf16.bit(1, '1'):
-                int_result = bf16.sbit(output_bitwidth, bin(0x8000))
+                int_result = bf16.sbit(output_bitwidth, bin(1 << (bf16.Float32.sign_bitpos-1)))
             else:
-                int_result = bf16.sbit(output_bitwidth, bin(0x7FFF))
+                int_result = bf16.sbit(output_bitwidth, bin((1 << (bf16.Float32.sign_bitpos-1)) - 1))
         elif exp_unbiased < 0:
             int_result = bf16.sbit(output_bitwidth, '0')
         else:
@@ -146,19 +166,20 @@ class FloatFPtoInt:
 class FloatInttoFP:
     """
     FloatInttoFP
-    Int -> Bfloat16
+    Int -> Float32
     - Algorithm
     save sign and make two's complement
-    15 bits for integer without sign
-    7 bits for mantissa under point
-    7 bits for round/sticky
-    1xx....xx   .   xxxxxxx rssssss
-    < 15bits><point>< mant> <  r/s >
+    31 bits for integer without sign
+    23 bits for mantissa under point
+    23 bits for round/sticky
+    1xx....xx   .   xxxx...xxx rsss...sss
+    < 31bits><point>< mant> <  r/s >
     find leading one and shift mantissa
     remains are mantissa
     shift amount is exponent
+    add ceiling and flooring
     """
-    sticky_bits = 6
+    sticky_bits = 22
     def __init__(self, a: int) -> None:
         self.a = a
         pass
@@ -167,8 +188,8 @@ class FloatInttoFP:
         self.sticky_bits = n
         return
 
-    def inttofp(self) -> 'bf16.Bfloat16':
-        output_bitwidth = 1 + bf16.Bfloat16.exponent_bits + bf16.Bfloat16.mantissa_bits
+    def inttofp(self):
+        output_bitwidth = 1 + bf16.Float32.exponent_bits + bf16.Float32.mantissa_bits
         round_bits = self.sticky_bits + 1
         a = self.a
         a_bitstring = bf16.sbit(output_bitwidth, bin(a))
@@ -182,13 +203,20 @@ class FloatInttoFP:
         # remove sign bit
         int_unsigned = bf16.ubit(output_bitwidth-1, a_unsigned[output_bitwidth-2:0].bin)
         # extend shift register
-        int_extended = int_unsigned.concat(bf16.ubit(bf16.Bfloat16.mantissa_bits + round_bits, '0'))
-        a_exp_preshift = bf16.ubit(bf16.Bfloat16.exponent_bits, bin(bf16.Bfloat16.bias))
+        int_extended = int_unsigned.concat(bf16.ubit(bf16.Float32.mantissa_bits + round_bits, '0'))
+        a_exp_preshift = bf16.ubit(bf16.Float32.exponent_bits, bin(bf16.Float32.bias))
         shift_amount = 0
-        int_shift_bitwidth = (output_bitwidth-1) + bf16.Bfloat16.mantissa_bits + round_bits
+        int_shift_bitwidth = (output_bitwidth-1) + bf16.Float32.mantissa_bits + round_bits
 
         # find leading one in [int_shift_bitwidth - 1:int_shift_bitwidth - (output_bitwidth-2)] 
-        # [28:15]
+        # [28:15] -> 14
+        # [76:47] -> 30
+        #for i in range(1, 31):
+        #    if int_extended[int_shift_bitwidth - i] == bf16.bit(1, '1'):
+        #        shift_amount = output_bitwidth - (i + 1)
+        #        break
+        #    else:
+        #        shift_amount = 0
         if int_extended[int_shift_bitwidth-1] == bf16.bit(1, '1'):
             shift_amount = output_bitwidth - 2
         elif int_extended[int_shift_bitwidth-2] == bf16.bit(1, '1'):
@@ -217,41 +245,66 @@ class FloatInttoFP:
             shift_amount = output_bitwidth - 14
         elif int_extended[int_shift_bitwidth-14] == bf16.bit(1, '1'):
             shift_amount = output_bitwidth - 15
+        elif int_extended[int_shift_bitwidth-15] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 16
+        elif int_extended[int_shift_bitwidth-16] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 17
+        elif int_extended[int_shift_bitwidth-17] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 18
+        elif int_extended[int_shift_bitwidth-18] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 19
+        elif int_extended[int_shift_bitwidth-19] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 20
+        elif int_extended[int_shift_bitwidth-20] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 21
+        elif int_extended[int_shift_bitwidth-21] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 22
+        elif int_extended[int_shift_bitwidth-22] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 23
+        elif int_extended[int_shift_bitwidth-23] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 24
+        elif int_extended[int_shift_bitwidth-24] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 25
+        elif int_extended[int_shift_bitwidth-25] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 26
+        elif int_extended[int_shift_bitwidth-26] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 27
+        elif int_extended[int_shift_bitwidth-27] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 28
+        elif int_extended[int_shift_bitwidth-28] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 29
+        elif int_extended[int_shift_bitwidth-29] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 30
+        elif int_extended[int_shift_bitwidth-30] == bf16.bit(1, '1'):
+            shift_amount = output_bitwidth - 31
         else:
             shift_amount = 0
 
+
         int_shifted = int_extended >> shift_amount
-
-#        while(1):
-#            zero_detect = int_shifted[int_shift_bitwidth-1:bf16.Bfloat16.mantissa_bits + 1 + round_bits].reduceor()
-#            if zero_detect.bin == '0':
-#                break
-#            else:
-#                int_shifted = int_shifted >> 1
-#                shift_amount = shift_amount + 1
         
-        a_exp_preround = a_exp_preshift + bf16.ubit(bf16.Bfloat16.exponent_bits, bin(shift_amount))
+        a_exp_preround = a_exp_preshift + bf16.ubit(bf16.Float32.exponent_bits, bin(shift_amount))
 
-        int_mant_part = int_shifted[bf16.Bfloat16.mantissa_bits + round_bits:0]
+        int_mant_part = int_shifted[bf16.Float32.mantissa_bits + round_bits:0]
         #print(repr(int_mant_part))
 
         # round and postnormalize
-        if int_mant_part[bf16.Bfloat16.mantissa_bits + round_bits:round_bits-1].bin == '111111111':
-            a_exp = a_exp_preround + bf16.ubit(bf16.Bfloat16.exponent_bits, '1')
-            int_shifted_rounded = bf16.ubit(bf16.Bfloat16.mantissa_bits+1, '10000000')
+        if int_mant_part[bf16.Float32.mantissa_bits + round_bits:round_bits-1].bin == '1' * (bf16.Float32.mantissa_bits + 2):
+            a_exp = a_exp_preround + bf16.ubit(bf16.Float32.exponent_bits, '1')
+            int_shifted_rounded = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{"0" * (bf16.Float32.mantissa_bits + 1)}')
         else:
             a_exp = a_exp_preround
-            int_shifted_rounded = bf16.hwutil.round_to_nearest_even_bit(int_mant_part, bf16.Bfloat16.mantissa_bits+1)
+            int_shifted_rounded = bf16.hwutil.round_to_nearest_even_bit(int_mant_part, bf16.Float32.mantissa_bits+1)
         
-        a_mant = int_shifted_rounded[bf16.Bfloat16.mantissa_bits-1:0]
+        a_mant = int_shifted_rounded[bf16.Float32.mantissa_bits-1:0]
 
         # check for zero input
         a_is_zero = (a_bitstring.reduceor() == bf16.bit(1, '0'))
 
         if a_is_zero:
             ret_sign = bf16.ubit(1, '0')
-            ret_exp = bf16.ubit(bf16.Bfloat16.exponent_bits, '0')
-            ret_mant = bf16.ubit(bf16.Bfloat16.mantissa_bits, '0')
+            ret_exp = bf16.ubit(bf16.Float32.exponent_bits, '0')
+            ret_mant = bf16.ubit(bf16.Float32.mantissa_bits, '0')
         else:
             ret_sign = a_sign
             ret_exp = a_exp
@@ -261,7 +314,7 @@ class FloatInttoFP:
         #print(ret_exp)
         #print(ret_mant)
 
-        inttofp = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
+        inttofp = bf16.Float32.compose_fp32(ret_sign, ret_exp, ret_mant)
         return inttofp
 
 

@@ -24,21 +24,25 @@ import tensorflow as tf
 #print((p+C).decompose_bf16())
 
 A = bf16.float_to_bf16(-1.32)
-B = fp32.float_to_fp32(6.871)
-C = bf16.float_to_bf16(3.156)
-D = fp32.float_to_fp32(-10.235)
-E = bf16.float_to_bf16(0.00640869)
+B = bf16.float_to_bf16(3.156)
+C = bf16.float_to_bf16(0.00640869)
+D = fp32.float_to_fp32(6.871)
+E = fp32.float_to_fp32(-10.235)
+F = fp32.float_to_fp32(0.00640869)
 
 #print(A)
 #print(B)
 #print(C)
 #print(D)
 #
-print(A+C)
-print(B+D)
+print(A+B)
+print(D+E)
 #print(A+B+C+D)
 #print(E)
 
 #print(A.bf16_to_fp32())
 #print(B)
 #print(B.fp32_to_bf16())
+
+print(bf16.fma(A, B, C))
+print(fp32.fma(D, E, F))

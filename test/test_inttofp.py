@@ -13,6 +13,7 @@ test_set = [
     32709,
     -32709,
     0,
+    1000000
 ]
 
 
@@ -30,7 +31,7 @@ def test_inttofp(num: int):
 
 def rand_test(times: int):
     fail_list = []
-    max_int = 2 ** 15
+    max_int = 2 ** 31
     for i in range(times):
         test_res_str = test_inttofp(random.randint(-max_int, max_int - 1))
         if check_fail_status(test_res_str):

@@ -190,8 +190,7 @@ class FloatAddition:
             # 1.111_1111
             if ret_mant_2[ret_mant_2.bitwidth-1:2] == bf16.ubit(bf16.Float32.mantissa_bits + 2, '1' * (bf16.Float32.mantissa_bits + 2)):
                 ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
-                # FIX
-                ret_mant_3 = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{"0" * (bf16.Float32.mantissa_bits + 1)}')
+                ret_mant_3 = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{"0" * (bf16.Float32.mantissa_bits)}')
             else:
                 # round
                 ret_exp_2 = ret_exp_1
