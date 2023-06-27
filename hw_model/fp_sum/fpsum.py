@@ -129,7 +129,9 @@ class FloatSummation:
             sign_acc, exp_acc, mant_nohidden_acc = self.acc.decompose()
             exp_acc_signed = bf16.sbit(bf16.Float32.exponent_bits + 2, f'0{exp_acc.bin}')
             # Treat acc as fp32 in module -> mantissa to 24bits
-            mant_acc_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{mant_nohidden_acc.bin}{16*"0"}')
+            mant_acc_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{mant_nohidden_acc.bin}')
+            print('mant_nohidden_acc', repr(mant_nohidden_acc))
+            print('mant_acc_us', repr(mant_acc_us))
 
             # Process elements
             # Exponent to signed bitstring
@@ -225,7 +227,7 @@ class FloatSummation:
                 mant_v_sign.append(-mant_acc_sign)
             else:
                 mant_v_sign.append(mant_acc_sign)
-            #print('mant_v_sign', mant_v_sign)
+            print('mant_v_sign', mant_v_sign)
 
             # mantissa shift
             # shifted & signed mantissa: Sx.xxx_xxxx_xxxx_...._xxxx
@@ -235,7 +237,7 @@ class FloatSummation:
                 mant_aligned = mant_v_sign[i].arith_rshift(shamt[i])
                 mant_v_aligned.append(mant_aligned)
             
-            #print('mant_v_aligned', mant_v_aligned)
+            print('mant_v_aligned', mant_v_aligned)
 
             # Adder tree
             # 64 entries -> 6 bits
@@ -246,7 +248,7 @@ class FloatSummation:
             for i in range(len(mant_v_aligned)):
                 mant_add = mant_add + mant_v_aligned[i]
 
-            #print('mant_add: ', repr(mant_add))
+            print('mant_add: ', repr(mant_add))
 
             # Post adder & accumulation
             # Sign bitpos: align shifter length + 7
@@ -259,11 +261,11 @@ class FloatSummation:
             mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign == bf16.sbit(1, "1") else mant_add_nocarry.bin}')
             mant_add_result = mant_add_result_before_sign_remove[sum_bit-3:0]
 
-            #print('mant_add_sign', repr(mant_add_sign))
-            #print('mant_add_nocarry', repr(mant_add_nocarry))
-            #print('inv mant_add_nocarry', repr(-mant_add_nocarry))
-            #print('mant_add_before_sign', repr(mant_add_result_before_sign_remove))
-            #print('mant_add_result', repr(mant_add_result))
+            print('mant_add_sign', repr(mant_add_sign))
+            print('mant_add_nocarry', repr(mant_add_nocarry))
+            print('inv mant_add_nocarry', repr(-mant_add_nocarry))
+            print('mant_add_before_sign', repr(mant_add_result_before_sign_remove))
+            print('mant_add_result', repr(mant_add_result))
 
             # Leading zero count for close path
             # to sum_bit - (tree_level + 2)
@@ -283,15 +285,15 @@ class FloatSummation:
                 lshamt = bf16.hwutil.leading_zero_count(clz_in)
             else:
                 lshamt = 0
-            #print('rshamt', rshamt)
-            #print('lshamt', lshamt)
+            print('rshamt', rshamt)
+            print('lshamt', lshamt)
             
     #        far_path = clz_in << lshamt
             far_path = mant_add_result << lshamt
             rnd_in = far_path if rshamt == 0 else close_path
 
-            #print('close_path', repr(close_path))
-            #print('far_path', repr(far_path))
+            print('close_path', repr(close_path))
+            print('far_path', repr(far_path))
 
             # Round
             # round in: 1.xxxx_xxx|R_ssss_...._xxxx
@@ -301,12 +303,12 @@ class FloatSummation:
             rnd = rnd_in[align_bit-round_bitpos]
             sticky = rnd_in[align_bit-round_bitpos-1:0].reduceor()
             round = (rnd & sticky) | (rnd_in[align_bit-round_bitpos+1] & rnd & ~sticky)
-            #print('round', repr(round))
+            print('round', repr(round))
 
             round_up = round.concat(bf16.bit(align_bit - round_bitpos, '0'))
             normed = bf16.ubit(align_bit+1, (rnd_in + round_up).bin)
 
-            #print('normed', repr(normed))
+            print('normed', repr(normed))
 
             # To handle overflow case, increase 1 bit
             if zero_mant_result:
@@ -320,8 +322,9 @@ class FloatSummation:
             postnorm_flag = normed[align_bit].bin == '1'
             out_sign = bf16.bit(1, mant_add_sign.bin)
             out_exp_overflow = t_exp + bf16.ubit(1, '1') if postnorm_flag else t_exp
-            # 7bits of fraction
-            out_frac_overflow = normed[align_bit-1:align_bit-7] if postnorm_flag else normed[align_bit-2:align_bit-8]
+            # 23bits of fraction
+            #out_frac_overflow = normed[align_bit-1:align_bit-7] if postnorm_flag else normed[align_bit-2:align_bit-8]
+            out_frac_overflow = normed[align_bit-1:align_bit-bf16.Float32.mantissa_bits] if postnorm_flag else normed[align_bit-2:align_bit-bf16.Float32.mantissa_bits-1]
             #print('postnorm flag', postnorm_flag)
 
             # BF16 assumes denormalized number as zero
@@ -335,13 +338,13 @@ class FloatSummation:
                 out_exp = out_exp_overflow[bf16.Float32.exponent_bits-1:0]
                 out_frac = out_frac_overflow
 
-            #print('t_exp',t_exp)
+            print('t_exp',t_exp)
         else:
             out_sign = out_sign
             out_exp = out_exp
             out_frac = out_frac
 
-        #print(out_sign, out_exp, out_frac)
+        print(out_sign, out_exp, out_frac)
 
         summation = bf16.Float32.compose_fp32(out_sign, out_exp, out_frac)
         return summation
