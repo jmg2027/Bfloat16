@@ -95,14 +95,14 @@ class FloatMultiplication:
                 ret_mant_1 = ret_mant_0
                 # rounding
                 # mant[15:8]
-                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
+                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, precision_bit)
             # mant[15] == 0
             else:
                 ret_exp_1 = ret_exp_0
                 # mant[14:0]
                 ret_mant_1 = ret_mant_0[len(ret_mant_0) - 2:0]
                 # mant[14:7]
-                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, 8)
+                ret_mant_2 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_1, precision_bit)
             
 
             # remove hidden bit
