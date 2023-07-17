@@ -144,19 +144,24 @@ def test_summation(vector_list):
         test_res_str = f'PASSED SUM({vector_list})'
     else:
         test_res_str = f'FAILED SUM({vector_list}), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
-    print(test_res_str)
+    #print(test_res_str)
     return test_res_str
 
-def rand_test(times: int):
+def rand_vector():
+    vector = list()
+    for i in range(vector_element_num):
+        #vector.append(float(random_bf16()))
+        vector.append(float(random_bf16_range(-10, 10)))
+    return vector
+
+def rand_test(times: int, vector_num: int = 16):
     # Generate 64 input random bf16
     fail_list = []
     for i in range(times):
-        vector = list()
-        for i in range(vector_element_num):
-            vector.append(float(random_bf16()))
-            #vector.append(float(random_bf16_range(-10, 10)))
-            #vector.append(float(random_bf16_range(-20, 20)))
-        test_res_str = test_summation(vector)
+        vector_list = list()
+        for j in range(vector_num):
+            vector_list.append(rand_vector())
+        test_res_str = test_summation(vector_list)
         if check_fail_status(test_res_str):
             fail_list.append(test_res_str)
     check_fail_list(fail_list)

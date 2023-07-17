@@ -201,7 +201,6 @@ class Bfloat16:
         summation = Summation(fp32_vector_list)
         summation.set_acc(cls(0, -127, 0))
         for v in summation.vector_list:
-            print('acc', summation.acc)
             summation.set_vector(v)
             acc = summation.summation()
             summation.set_acc(acc)

@@ -64,7 +64,13 @@ def test_rand_fptoint(times):
 def test_rand_inttofp(times):
     test.test_inttofp.rand_test(times)
 
-def test_random_all():
+def test_random_all(times):
+    test_rand_mul(times)
+    test_rand_add(times)
+    test_rand_fma(times)
+    test_rand_summation(times)
+    test_rand_fptoint(times)
+    test_rand_inttofp(times)
     pass
 
 
@@ -72,12 +78,12 @@ if __name__ == "__main__":
 #    test_mul()
 #    test_add()
 #    test_fma()
-    test_summation()
+#    test_summation()
 #    test_fptoint()
 #    test_inttofp()
 #    test_rand_mul(1000)
 #    test_rand_add(10000)
 #    test_rand_fma(1000)
-#    test_rand_summation(1000)
+    test_rand_summation(10)
 #    test_rand_fptoint(1000)
 #    test_rand_inttofp(1000)
