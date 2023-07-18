@@ -2,13 +2,20 @@ import tensorflow as tf
 import random
 
 from bf16.bf16 import Bfloat16 as bf16
+from bf16.bf16 import Float32 as fp32
 from bf16.utils import bf16_ulp_dist
 
 def convert_to_bf16(num: float):
     return bf16.float_to_bf16(num)
 
+def convert_to_fp32(num: float):
+    return fp32.float_to_fp32(num)
+
 def convert_to_tfbf16(num: float):
     return tf.cast(float(num), tf.bfloat16)
+
+def convert_to_tffp32(num: float):
+    return tf.cast(float(num), tf.float32)
 
 def convert_tfbf16_to_int(num: tf.bfloat16):
     return int(num)
