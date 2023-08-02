@@ -20,7 +20,7 @@ test_set = [
 ]
 
 
-def test_mul(num1: float, num2: float):
+def test_mul_bf16(num1: float, num2: float):
     a = convert_to_bf16(num1)
     b = convert_to_bf16(num2)
     bf16_res = a * b
@@ -37,14 +37,34 @@ def test_mul(num1: float, num2: float):
     print(test_res_str)
     return test_res_str
 
+def test_mul(num1: float, num2: float):
+    a = convert_to_fp32(num1)
+    b = convert_to_fp32(num2)
+    fp32_res = a * b
+
+    tfa = convert_to_tffp32(num1)
+    tfb = convert_to_tffp32(num2)
+    tffp32_res = tfa * tfb
+    
+    check_float_equal(fp32_res, tffp32_res)
+    if check_float_equal:
+#        test_res_str = f'PASSED {num1} * {num2}, res: {float(fp32_res)}'
+        test_res_str = f'PASSED {num1} * {num2}, res: {fp32_res}'
+    else:
+        test_res_str = f'FAILED {num1} * {num2}, bf16: {fp32_res}, tfbf16: {tffp32_res}'
+    print(test_res_str)
+    return a, b, fp32_res, test_res_str
+
 def rand_test(times: int):
+    test_list = []
     fail_list = []
     for i in range(times):
-        test_res_str = test_mul(float(random_bf16()), float(random_bf16()))
+        a, b, fp32_res, test_res_str = test_mul(float(random_bf16()), float(random_bf16()))
+        test_list.append([a, b, fp32_res])
         if check_fail_status(test_res_str):
             fail_list.append(test_res_str)
     check_fail_list(fail_list)
-    return
+    return test_list
 
 def test():
     fail_list = []
