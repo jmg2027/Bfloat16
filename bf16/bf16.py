@@ -108,6 +108,9 @@ class Bfloat16:
         biased_exponent = self.exponent + self.bias
         return ''.join([format(self.sign, '01b'), format(biased_exponent, f'0{self.exponent_bits}b'), format(self.mantissa, f'0{self.mantissa_bits}b')])
 
+    def hex(self):
+        return f'0x{hex(int(self.bin(), 2))[2:].zfill(self.sign_bitpos//4)}'
+    
     def decompose(self) -> Tuple['bit', 'bit', 'bit']:
         """
         To hardware input
@@ -253,7 +256,7 @@ class Bfloat16:
         else:
             float_repr = self.bf16_to_float()
         return float_repr
-    
+
     def __repr__(self):
         return f"Bfloat16({float(self)}, sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
 
@@ -347,6 +350,9 @@ class Float32:
         """
         biased_exponent = self.exponent + self.bias
         return ''.join([format(self.sign, '01b'), format(biased_exponent, f'0{self.exponent_bits}b'), format(self.mantissa, f'0{self.mantissa_bits}b')])
+
+    def hex(self):
+        return f'0x{hex(int(self.bin(), 2))[2:].zfill(self.sign_bitpos//4)}'
 
     def decompose(self) -> Tuple['bit', 'bit', 'bit']:
         """
