@@ -191,8 +191,10 @@ class FloatSummation:
             shamt.append(int(o_max_exp - exp_acc_signed))
 
             #print('exp max tree', exp_max_tree)
-            #print('max exp', o_max_exp)
-            #print('shamt', shamt)
+            print(exp_v)
+            print(int(exp_v_signed[0]))
+            print('max exp', int(o_max_exp))
+            print('shamt', shamt)
 
             # mantissa: h.mmm_mmmm
             # shifted mantissa: x.xxx_xxxx_xxxx_...._xxxx
@@ -232,6 +234,10 @@ class FloatSummation:
             else:
                 mant_v_sign.append(mant_acc_sign)
             #print('mant_v_sign', mant_v_sign)
+            mant_v_sign_print = []
+            for i in mant_v_sign:
+                mant_v_sign_print.append(hex(int(i.bin, 2)))
+            print('mant_v_sign', mant_v_sign_print)
 
             # mantissa shift
             # shifted & signed mantissa: Sx.xxx_xxxx_xxxx_...._xxxx
@@ -242,6 +248,11 @@ class FloatSummation:
                 mant_v_aligned.append(mant_aligned)
             
             #print('mant_v_aligned', mant_v_aligned)
+            mant_v_aligned_print = []
+            for i in mant_v_aligned:
+                mant_v_aligned_print.append(hex(int(i.bin, 2)))
+            print('mant_v_aligned', mant_v_aligned_print)
+
 
             # Adder tree
             # 64 entries -> 6 bits
@@ -252,7 +263,8 @@ class FloatSummation:
             for i in range(len(mant_v_aligned)):
                 mant_add = mant_add + mant_v_aligned[i]
 
-            #print('mant_add: ', repr(mant_add))
+            print('mant_add: ', repr(mant_add))
+            print('mant_add: ', hex(int(mant_add.bin, 2)))
 
             # Post adder & accumulation
             # Sign bitpos: align shifter length + 7
