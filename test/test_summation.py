@@ -3,8 +3,8 @@ from test.utils import *
 
 bf16_mant_max = float(bf16(0, 0, 127))
 # Match vector_element_num to FloatSummation.vector_element_num
-vector_element_num = 64
-#vector_element_num = 4
+#vector_element_num = 64
+vector_element_num = 32
 
 #test_set = [
 #    [
