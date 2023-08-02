@@ -112,7 +112,9 @@ class FloatFMA:
             c_exp_eq_p = exp_diff == bf16.sbit(1, '0')
             c_mant_gt_p = (c_mant_us.concat(bf16.bit(precision_bit, '0'))) >= p_mant_us
             #print(c_mant_us)
-            #print(p_mant_us)
+            print('a_mant_us', hex(int(a_mant_us)))
+            print('b_mant_us', hex(int(b_mant_us)))
+            print('p_mant_us', hex(int(p_mant_us)))
 
             # Prenormalized Exponent
             if c_exp_gt_p:
@@ -196,6 +198,9 @@ class FloatFMA:
                 #print(repr(mant_unshift))
                 #print('mant_c_shft: ', mant_add_in_c)
                 #print('mant_p_shft: ', mant_add_in_p)
+                print('mant_shift_amt', mant_shift_amt)
+                print('mant_c_shft: ', hex(int(mant_add_in_c)))
+                print('mant_p_shft: ', hex(int(mant_add_in_p)))
 
                 # Add mantissa (Including sub)
                 # mant_add[1+2p+3:0] (Including carry)
@@ -276,11 +281,21 @@ class FloatFMA:
             #print('exp 1', repr(ret_exp_1))
             #print('exp 2', repr(ret_exp_2))
 
+            print('exp 0', hex(int(ret_exp_0)))
+            print('exp 1', hex(int(ret_exp_1)))
+            print('exp 2', hex(int(ret_exp_2)))
+
             #print('mant 0', repr(ret_mant_0))
             #print('mant 1', repr(ret_mant_1))
             #print('mant 2', repr(ret_mant_2))
             #print('mant 3', repr(ret_mant_3))
             #print('mant 4', repr(ret_mant_4))
+
+            print('mant 0', hex(int(ret_mant_0)))
+            print('mant 1', hex(int(ret_mant_1)))
+            print('mant 2', hex(int(ret_mant_2)))
+            print('mant 3', hex(int(ret_mant_3)))
+            print('mant 4', hex(int(ret_mant_4)))
 
         else:
             ret_sign = ret_sign_0
