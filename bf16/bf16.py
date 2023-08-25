@@ -73,6 +73,17 @@ class Bfloat16:
         if not 0 <= mantissa <= self.mant_max:
             raise ValueError(f"Bfloat16 mantissa value must be in range of 0 ~ 127")
         return mantissa
+
+    @classmethod
+    def from_hex(cls, h: int) -> None:
+        sign = h >> (cls.sign_bitpos - 1)
+        exp_bit_msb = cls.sign_bitpos - 1
+        exp_bit_lsb = cls.sign_bitpos - 1 - cls.exponent_bits
+        exp_mask = ((1 << exp_bit_msb) - 1) - ((1 << exp_bit_lsb) -1)
+        exponent = ((h & exp_mask) >> (cls.sign_bitpos - 1 - cls.exponent_bits)) - cls.bias
+        mant_mask = cls.mant_max
+        mantissa = h & mant_mask
+        return cls(sign, exponent, mantissa)
     
     def isnan(self) -> bool:
         return self.exponent == self.exp_max and self.mantissa != 0
@@ -316,6 +327,17 @@ class Float32:
         if not 0 <= mantissa <= self.mant_max:
             raise ValueError(f"Float32 mantissa value must be in range of 0 ~ 2^23-1")
         return mantissa
+
+    @classmethod
+    def from_hex(cls, h: int) -> None:
+        sign = h >> (cls.sign_bitpos - 1)
+        exp_bit_msb = cls.sign_bitpos - 1
+        exp_bit_lsb = cls.sign_bitpos - 1 - cls.exponent_bits
+        exp_mask = ((1 << exp_bit_msb) - 1) - ((1 << exp_bit_lsb) -1)
+        exponent = ((h & exp_mask) >> (cls.sign_bitpos - 1 - cls.exponent_bits)) - cls.bias
+        mant_mask = cls.mant_max
+        mantissa = h & mant_mask
+        return cls(sign, exponent, mantissa)
     
     def isnan(self) -> bool:
         return self.exponent == self.exp_max and self.mantissa != 0
