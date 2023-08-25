@@ -1,52 +1,97 @@
+from bf16.bf16 import Bfloat16 as bf16
+import numpy as np
+import tensorflow as tf
+
 import test
 
-# Use this for conversion of test set into fdata.h
-def convert_fdata(test_list):
-	hex_set = list()
-	for a, b in test_list:
-		h1, h2 = utils.float_to_hex(a), utils.float_to_hex(b)
-		#hex_set.append((h1, h2))
-		hex_set.append(h1)
-		hex_set.append(h2)
-	print(hex_set)
-	return hex_set
+# make test as new class and define each operations with it
+# such as: 
+# def test(op, ftype):
+# if op == 'mul':
+# t = test.test_class.T(mul, ftype)
+# t.test()
 
-# run python random test
-def mul_hex_list():
-    mul_test_list = test.test_mul.rand_test(10)
-    a_input, b_input, res = list(), list(), list()
-    for e in mul_test_list:
-        a_input.append(e[0].hex())
-        b_input.append(e[1].hex())
-        res.append(e[2].hex())
-    return a_input, b_input, res
+def test_bf16_module():
+    test.test_bf16module.test()
 
-# run python random test
-def fma_hex_list():
-    fma_test_list = test.test_fma.rand_test(10)
-    a_input, b_input, c_input, res = list(), list(), list(), list()
-    for e in fma_test_list:
-        a_input.append(e[0].hex())
-        b_input.append(e[1].hex())
-        c_input.append(e[1].hex())
-        res.append(e[2].hex())
-    return a_input, b_input, c_input, res
+def test_pow():
+    test.test_power.test()
 
-a, b, res = mul_hex_list()
-aa, bb, cc, res = fma_hex_list()
+def test_neg():
+    test.test_neg.test()
 
-def conv_fdata_zip(z: zip):
-    s = list()
-    for i in z:
-        s.append(f'{", ".join(i)}')
-    return ',\n'.join(s)
-#print(conv_fdata_zip(zip(a, b, res)))
-print(conv_fdata_zip(zip(a, b)))
-print('\n'.join(res))
-print(conv_fdata_zip(zip(aa, bb, cc)))
-print('\n'.join(res))
-#    return
-# make random inputs fdata.h
-# save result values as result.txt
-# run chessmk
-# compare test.mem & result.txt
+def test_mul():
+    t = test.test_mul.TestMul()
+    t.test()
+
+def test_add():
+    test.test_add.test()
+
+def test_fma():
+    test.test_fma.test()
+
+def test_summation():
+    test.test_summation.test()
+
+def test_fptoint():
+    test.test_fptoint.test()
+
+def test_inttofp():
+    test.test_inttofp.test()
+
+def test_all():
+    test_bf16_module()
+    test_pow()
+    test_neg()
+    test_mul()
+    test_add()
+    test_fma()
+    test_summation()
+    test_fptoint()
+    test_inttofp()
+
+def test_rand_mul(times):
+    test.test_mul.rand_test(times)
+    return
+
+def test_rand_add(times):
+    test.test_add.rand_test(times)
+    return
+
+def test_rand_fma(times):
+    test.test_fma.rand_test(times)
+    return
+
+def test_rand_summation(times):
+    test.test_summation.rand_test(times)
+    return
+
+def test_rand_fptoint(times):
+    test.test_fptoint.rand_test(times)
+
+def test_rand_inttofp(times):
+    test.test_inttofp.rand_test(times)
+
+def test_random_all(times):
+    test_rand_mul(times)
+    test_rand_add(times)
+    test_rand_fma(times)
+    test_rand_summation(times)
+    test_rand_fptoint(times)
+    test_rand_inttofp(times)
+    pass
+
+
+if __name__ == "__main__":
+    test_mul()
+#    test_add()
+#    test_fma()
+#    test_summation()
+#    test_fptoint()
+#    test_inttofp()
+#    test_rand_mul(1000)
+#    test_rand_add(10000)
+#    test_rand_fma(1000)
+#    test_rand_summation(10)
+#    test_rand_fptoint(1000)
+#    test_rand_inttofp(1000)
