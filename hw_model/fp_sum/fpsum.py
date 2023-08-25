@@ -48,7 +48,7 @@ class FloatSummation:
     
     align_bitwidth = 32
     #align_bitwidth = 64
-    vector_element_num = 64
+    vector_element_num = 32
     #vector_element_num = 4
     def __init__(self, vector_list: list):
         self.vector_list = vector_list
@@ -81,25 +81,30 @@ class FloatSummation:
         # In vector if there's any inf with same sign
         any_nan = False
         any_inf = False
-        inf_sign = list()
+        inf_num = 0
+        neg_inf_num = 0
         for i in self.vector:
-            any_nan = any_nan | i.isnan()
-            any_inf = any_inf | i.isinf()
+            any_nan |= i.isnan()
             if i.isinf():
-                inf_sign.append(i.sign)
-        any_nan = any_nan | self.acc.isnan()
-        any_inf = any_inf | self.acc.isinf()
+                inf_num = inf_num + 1
+                if i >> 31:
+                    neg_inf_num = neg_inf_num + 1
+
+        any_nan |= self.acc.isnan()
         if self.acc.isinf():
-            inf_sign.append(i.sign)
-        # Find if all infinities have same sign
+            inf_num = inf_num + 1
+            if self.acc >> 31:
+                neg_inf_num = neg_inf_num + 1
+
         all_inf_same_sign = False
-        if inf_sign != []:
-            all_sign_and = inf_sign[0]
-            all_sign_or = inf_sign[0]
-            for i in range(len(inf_sign)-1):
-                all_sign_and = all_sign_and & inf_sign[i+1]
-                all_sign_or = all_sign_or | inf_sign[i+1]
-            all_inf_same_sign = not (all_sign_and ^ all_sign_or)
+        if inf_num != 0:
+            any_inf = True
+            if neg_inf_num == 0:
+                all_inf_same_sign = True
+                inf_sign = 0
+            elif neg_inf_num == inf_num:
+                all_inf_same_sign = False
+                inf_sign = 1
 
         # In vector if there's any nan -> nan
         # nan inputs clearance
@@ -134,8 +139,8 @@ class FloatSummation:
             exp_acc_signed = bf16.sbit(bf16.Float32.exponent_bits + 2, f'0{exp_acc.bin}')
             # Treat acc as fp32 in module -> mantissa to 24bits
             mant_acc_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{mant_nohidden_acc.bin}')
-            #print('mant_nohidden_acc', repr(mant_nohidden_acc))
-            #print('mant_acc_us', repr(mant_acc_us))
+            print('mant_nohidden_acc', repr(mant_nohidden_acc))
+            print('mant_acc_us', repr(mant_acc_us))
 
             # Process elements
             # Exponent to signed bitstring
@@ -190,7 +195,7 @@ class FloatSummation:
             # Acc shift
             shamt.append(int(o_max_exp - exp_acc_signed))
 
-            #print('exp max tree', exp_max_tree)
+            print('exp max tree', exp_max_tree)
             print(exp_v)
             print(int(exp_v_signed[0]))
             print('max exp', int(o_max_exp))
@@ -233,7 +238,7 @@ class FloatSummation:
                 mant_v_sign.append(-mant_acc_sign)
             else:
                 mant_v_sign.append(mant_acc_sign)
-            #print('mant_v_sign', mant_v_sign)
+            print('mant_v_sign', mant_v_sign)
             mant_v_sign_print = []
             for i in mant_v_sign:
                 mant_v_sign_print.append(hex(int(i.bin, 2)))
@@ -247,7 +252,7 @@ class FloatSummation:
                 mant_aligned = mant_v_sign[i].arith_rshift(shamt[i])
                 mant_v_aligned.append(mant_aligned)
             
-            #print('mant_v_aligned', mant_v_aligned)
+            print('mant_v_aligned', mant_v_aligned)
             mant_v_aligned_print = []
             for i in mant_v_aligned:
                 mant_v_aligned_print.append(hex(int(i.bin, 2)))
@@ -277,11 +282,11 @@ class FloatSummation:
             mant_add_result_before_sign_remove = bf16.ubit(sum_bit-1, f'{(-mant_add_nocarry).bin if mant_add_sign == bf16.sbit(1, "1") else mant_add_nocarry.bin}')
             mant_add_result = mant_add_result_before_sign_remove[sum_bit-3:0]
 
-            #print('mant_add_sign', repr(mant_add_sign))
-            #print('mant_add_nocarry', repr(mant_add_nocarry))
-            #print('inv mant_add_nocarry', repr(-mant_add_nocarry))
-            #print('mant_add_before_sign', repr(mant_add_result_before_sign_remove))
-            #print('mant_add_result', repr(mant_add_result))
+            print('mant_add_sign', repr(mant_add_sign))
+            print('mant_add_nocarry', repr(mant_add_nocarry))
+            print('inv mant_add_nocarry', repr(-mant_add_nocarry))
+            print('mant_add_before_sign', repr(mant_add_result_before_sign_remove))
+            print('mant_add_result', repr(mant_add_result))
 
             # Leading zero count for close path
             # to sum_bit - (tree_level + 2)
@@ -301,30 +306,30 @@ class FloatSummation:
                 lshamt = bf16.hwutil.leading_zero_count(clz_in)
             else:
                 lshamt = 0
-            #print('rshamt', rshamt)
-            #print('lshamt', lshamt)
+            print('rshamt', rshamt)
+            print('lshamt', lshamt)
             
     #        far_path = clz_in << lshamt
             far_path = mant_add_result << lshamt
             rnd_in = far_path if rshamt == 0 else close_path
 
-            #print('close_path', repr(close_path))
-            #print('far_path', repr(far_path))
+            print('close_path', repr(close_path))
+            print('far_path', repr(far_path))
 
             # Round
             # round in: 1.xxxx_xxx|R_ssss_...._xxxx
             #                  < align shifter length >
-            #print('rnd_in: ', repr(rnd_in))
+            print('rnd_in: ', repr(rnd_in))
             round_bitpos = 1 + bf16.Float32.mantissa_bits+1
             rnd = rnd_in[align_bit-round_bitpos]
             sticky = rnd_in[align_bit-round_bitpos-1:0].reduceor()
             round = (rnd & sticky) | (rnd_in[align_bit-round_bitpos+1] & rnd & ~sticky)
-            #print('round', repr(round))
+            print('round', repr(round))
 
             round_up = round.concat(bf16.bit(align_bit - round_bitpos, '0'))
             normed = bf16.ubit(align_bit+1, (rnd_in + round_up).bin)
 
-            #print('normed', repr(normed))
+            print('normed', repr(normed))
 
             # To handle overflow case, increase 1 bit
             if zero_mant_result:
@@ -341,7 +346,7 @@ class FloatSummation:
             # 23bits of fraction
             #out_frac_overflow = normed[align_bit-1:align_bit-7] if postnorm_flag else normed[align_bit-2:align_bit-8]
             out_frac_overflow = normed[align_bit-1:align_bit-bf16.Float32.mantissa_bits] if postnorm_flag else normed[align_bit-2:align_bit-bf16.Float32.mantissa_bits-1]
-            #print('postnorm flag', postnorm_flag)
+            print('postnorm flag', postnorm_flag)
 
             # BF16 assumes denormalized number as zero
             # There is no denormalized output in addition
@@ -354,13 +359,13 @@ class FloatSummation:
                 out_exp = out_exp_overflow[bf16.Float32.exponent_bits-1:0]
                 out_frac = out_frac_overflow
 
-            #print('t_exp',t_exp)
+            print('t_exp',t_exp)
         else:
             out_sign = out_sign
             out_exp = out_exp
             out_frac = out_frac
 
-        #print(out_sign, out_exp, out_frac)
+        print(out_sign, out_exp, out_frac)
 
         summation = bf16.Float32.compose_fp32(out_sign, out_exp, out_frac)
         return summation
