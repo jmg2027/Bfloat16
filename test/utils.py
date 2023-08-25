@@ -5,6 +5,14 @@ from bf16.bf16 import Bfloat16 as bf16
 from bf16.bf16 import Float32 as fp32
 from bf16.utils import bf16_ulp_dist
 
+def conv_from_float(f, ftype = fp32):
+    if ftype == bf16:
+        return convert_to_bf16(f)
+    elif ftype == fp32:
+        return convert_to_fp32(f)
+    else:
+        raise TypeError("Use this function only for Bfloat16 and Float32 type")
+
 def convert_to_bf16(num: float):
     return bf16.float_to_bf16(num)
 
@@ -23,6 +31,28 @@ def convert_tfbf16_to_int(num: tf.bfloat16):
 
 def convert_int_to_tfbf16(num: int):
     return tf.cast(num, tf.bfloat16)
+
+def cast_float(frepr, ftype = fp32):
+    # use float representation for integer inputs
+    # integer inputs are used to hex input
+    if isinstance(frepr, int):
+        # integer/hex repr
+        return ftype.from_hex(frepr)
+    elif isinstance(frepr, float):
+        # python float repr
+        return conv_from_float(frepr, ftype)
+    elif isinstance(frepr, ftype):
+        # need not to cast
+        return frepr
+    elif isinstance(frepr, bf16) & (ftype == fp32):
+        # bf16 -> fp32
+        return bf16.bf16_to_fp32(frepr)
+    elif isinstance(frepr, fp32) & (ftype == bf16):
+        # bf16 -> fp32
+        return fp32.fp32_to_bf16(frepr)
+    else:
+        raise TypeError(f"Supported float representations are: hex(int), float, bf16, fp32. Current input: {frepr}")
+        
 
 def check_float_equal(res1, res2):
     # nan cannot be compared
@@ -45,6 +75,16 @@ def random_bf16():
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
+
+def random_fp32():
+    min_exp = - fp32.exp_max + 1
+    max_exp = fp32.exp_max
+    rand_exp = random.randint(min_exp, max_exp)
+    min_mant = 0
+    max_mant = fp32.mant_max
+    rand_mant = random.randint(min_mant, max_mant)
+    rand_sign = random.randint(0,1)
+    return fp32(rand_sign, rand_exp, rand_mant)
 
 def random_bf16_range(exp_min = -10, exp_max = 10):
     min_exp = exp_min 
