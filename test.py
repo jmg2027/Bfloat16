@@ -4,6 +4,13 @@ import tensorflow as tf
 
 import test
 
+# make test as new class and define each operations with it
+# such as: 
+# def test(op, ftype):
+# if op == 'mul':
+# t = test.test_class.T(mul, ftype)
+# t.test()
+
 def test_bf16_module():
     test.test_bf16module.test()
 
@@ -14,7 +21,8 @@ def test_neg():
     test.test_neg.test()
 
 def test_mul():
-    test.test_mul.test()
+    t = test.test_mul.TestMul()
+    t.test()
 
 def test_add():
     test.test_add.test()
@@ -75,7 +83,7 @@ def test_random_all(times):
 
 
 if __name__ == "__main__":
-#    test_mul()
+    test_mul()
 #    test_add()
 #    test_fma()
 #    test_summation()
@@ -84,6 +92,6 @@ if __name__ == "__main__":
 #    test_rand_mul(1000)
 #    test_rand_add(10000)
 #    test_rand_fma(1000)
-    test_rand_summation(10)
+#    test_rand_summation(10)
 #    test_rand_fptoint(1000)
 #    test_rand_inttofp(1000)
