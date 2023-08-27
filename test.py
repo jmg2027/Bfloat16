@@ -1,4 +1,5 @@
 from bf16.bf16 import Bfloat16 as bf16
+from bf16.bf16 import Float32 as fp32
 import numpy as np
 import tensorflow as tf
 
@@ -20,8 +21,8 @@ def test_pow():
 def test_neg():
     test.test_neg.test()
 
-def test_mul():
-    t = test.test_mul.TestMul()
+def test_mul(ftype = fp32):
+    t = test.test_mul.TestMul(ftype)
     t.test()
 
 def test_add():
@@ -83,7 +84,8 @@ def test_random_all(times):
 
 
 if __name__ == "__main__":
-    test_mul()
+    #test_mul(fp32)
+    test_mul(bf16)
 #    test_add()
 #    test_fma()
 #    test_summation()

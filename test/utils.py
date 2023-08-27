@@ -1,11 +1,27 @@
 import tensorflow as tf
 import random
 
+from typing import (
+    Union,
+    Type,
+    TypeVar,
+    List,
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Optional
+    )
+
 from bf16.bf16 import Bfloat16 as bf16
 from bf16.bf16 import Float32 as fp32
 from bf16.utils import bf16_ulp_dist
 
-def conv_from_float(f, ftype = fp32):
+FloatType = TypeVar('FloatType', bound=bf16, fp32)
+AnyFloatType = TypeVar('AnyFloatType', bf16, fp32, Any)
+
+#def conv_from_float(f: float, ftype: Type[FloatType] = fp32) -> FloatType:
+def conv_from_float(f: float, ftype: Type[FloatType]) -> FloatType:
     if ftype == bf16:
         return convert_to_bf16(f)
     elif ftype == fp32:
@@ -19,25 +35,38 @@ def convert_to_bf16(num: float):
 def convert_to_fp32(num: float):
     return fp32.float_to_fp32(num)
 
-def convert_to_tfbf16(num: float):
+def conv_to_tf_dtype(num: float, ftype: Type[FloatType] = fp32):
+    # type: (float, Type[FloatType]) -> Union[tf.bfloat16, tf.float32]
+    if ftype == bf16:
+        return convert_to_tfbf16(num)
+    elif ftype == fp32:
+        return convert_to_tffp32(num)
+    else:
+        raise TypeError("Use this function only for Bfloat16 and Float32 type")
+
+def convert_to_tfbf16(num: float) -> tf.bfloat16:
     return tf.cast(float(num), tf.bfloat16)
 
-def convert_to_tffp32(num: float):
+def convert_to_tffp32(num: float) -> tf.float32:
     return tf.cast(float(num), tf.float32)
 
-def convert_tfbf16_to_int(num: tf.bfloat16):
+def convert_tfbf16_to_int(num: tf.bfloat16) -> int:
     return int(num)
-#    return tf.cast(float(num), tf.int64)
 
-def convert_int_to_tfbf16(num: int):
+def convert_int_to_tfbf16(num: int) -> tf.bfloat16:
     return tf.cast(num, tf.bfloat16)
 
-def cast_float(frepr, ftype = fp32):
+def cast_float(frepr: Union[int, float, bf16, fp32], \
+                ftype: Type[FloatType] = fp32) \
+                -> FloatType:
     # use float representation for integer inputs
     # integer inputs are used to hex input
-    if isinstance(frepr, int):
+    if isinstance(frepr, int) &  (ftype == fp32):
         # integer/hex repr
-        return ftype.from_hex(frepr)
+        return ftype.from_hex(frepr & 0xFFFF_FFFF)
+    elif isinstance(frepr, int) &  (ftype == bf16):
+        # integer/hex repr
+        return ftype.from_hex(frepr & 0xFFFF)
     elif isinstance(frepr, float):
         # python float repr
         return conv_from_float(frepr, ftype)
@@ -54,7 +83,7 @@ def cast_float(frepr, ftype = fp32):
         raise TypeError(f"Supported float representations are: hex(int), float, bf16, fp32. Current input: {frepr}")
         
 
-def check_float_equal(res1, res2):
+def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
     if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
         return True
@@ -66,7 +95,7 @@ def check_float_equal(res1, res2):
     else:
         return False
 
-def random_bf16():
+def random_bf16() -> bf16:
     min_exp = - bf16.exp_max + 1
     max_exp = bf16.exp_max
     rand_exp = random.randint(min_exp, max_exp)
@@ -76,7 +105,7 @@ def random_bf16():
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
-def random_fp32():
+def random_fp32() -> fp32:
     min_exp = - fp32.exp_max + 1
     max_exp = fp32.exp_max
     rand_exp = random.randint(min_exp, max_exp)
@@ -86,7 +115,7 @@ def random_fp32():
     rand_sign = random.randint(0,1)
     return fp32(rand_sign, rand_exp, rand_mant)
 
-def random_bf16_range(exp_min = -10, exp_max = 10):
+def random_bf16_range(exp_min: int = -10, exp_max: int = 10) -> bf16:
     min_exp = exp_min 
     max_exp = exp_max
     rand_exp = random.randint(min_exp, max_exp)
@@ -96,7 +125,7 @@ def random_bf16_range(exp_min = -10, exp_max = 10):
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
-def check_fail_list(fail_list: list):
+def check_fail_list(fail_list: list) -> None:
     print("TEST RESULT")
     if fail_list == []:
         fail_list.append("ALL TEST PASSED")
