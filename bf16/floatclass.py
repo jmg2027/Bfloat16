@@ -265,13 +265,11 @@ class FloatBase(Generic[FloatBaseT], metaclass=ABCMeta):
     def to_float(self) -> float:
         pass
 
-    @abstractmethod
     def bf16_to_fp32(self) -> 'Float32':
-        pass
+            raise NotImplementedError("This method should be implemented by subclasses if needed")
 
-    @abstractmethod
     def fp32_to_bf16(self) -> 'Bfloat16':
-        pass
+            raise NotImplementedError("This method should be implemented by subclasses if needed")
 
     #@abstractmethod
     #def to_tftype(self): # type: ignore

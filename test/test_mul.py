@@ -1,6 +1,5 @@
-from bf16.bf16 import Bfloat16 as bf16
-from bf16.bf16 import Float32 as fp32
 from test.utils import *
+from bf16 import bf16, fp32
 
 from test.test_class import TestOperationBase
 

@@ -3,13 +3,15 @@ from bf16 import *
 
 from abc import ABCMeta, abstractmethod
 
+from typing import Generic
+
 
 #OpFuncType = Callable[[Tuple[Union[FloatBaseT, Any], ...], Union[FloatBaseT, Any]]]
 OpFuncType = int
 
 
-class TestAbsClass(metaclass=ABCMeta):
-    test_set: list
+class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
+    test_set: List
     ftype: Type[FloatBaseT]
     _INPUT_NUM: int
     
@@ -59,12 +61,12 @@ class TestAbsClass(metaclass=ABCMeta):
         pass
 
 
-class TestOperationBase(TestAbsClass):
+class TestOperationBase(TestAbsClass[FloatBaseT]):
     """
     Parent class for testing operations
     """
     test_set: List
-    ftype: type
+    ftype: Type[FloatBaseT]
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
 

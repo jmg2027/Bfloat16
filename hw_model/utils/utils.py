@@ -1,5 +1,5 @@
 from typing import List
-import bf16.bf16 as bf16
+from bf16 import *
 
 
 def radix_4_booth_encoder(bin: str) -> List:
@@ -25,7 +25,7 @@ def radix_4_booth_encoder(bin: str) -> List:
         enc_list.insert(0, enc_value)
     return enc_list
 
-def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int) -> bf16.bit:
+def round_to_nearest_even_bit(bit: ubit, round_width: int) -> bit:
     # bitwidth of bit should be larger than round_width + grs bits
     # xxxx_xxxx_xxxx_xxxx...
     # xxxx_xxxG_RSSS_SSSS...
@@ -40,22 +40,22 @@ def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int) -> bf16.bit:
     truncated_bit = bit[bit.bitwidth-1:bit.bitwidth - round_width]
 
     # G = 0
-    if guard_bit == bf16.ubit(1, '0'):
+    if guard_bit == ubit(1, '0'):
         rounded_bit = truncated_bit
     else:
         # GR = 11
-        if round_bit == bf16.ubit(1, '1'):
-            rounded_bit = truncated_bit + bf16.ubit(1, '1')
+        if round_bit == ubit(1, '1'):
+            rounded_bit = truncated_bit + ubit(1, '1')
         else:
             # GRS = 101
-            if sticky_bit != bf16.ubit(1, '0'):
-                rounded_bit = truncated_bit + bf16.ubit(1, '1')
+            if sticky_bit != ubit(1, '0'):
+                rounded_bit = truncated_bit + ubit(1, '1')
             # GRS = 100
             else:
-                if truncated_bit[0] == bf16.ubit(1, '0'):
+                if truncated_bit[0] == ubit(1, '0'):
                     rounded_bit = truncated_bit
                 else:
-                    rounded_bit = truncated_bit + bf16.ubit(1, '1')
+                    rounded_bit = truncated_bit + ubit(1, '1')
                     
     #print('trunc: ', truncated_bit)
     #print('round: ', rounded_bit)
@@ -64,10 +64,10 @@ def round_to_nearest_even_bit(bit: 'bf16.ubit', round_width: int) -> bf16.bit:
     #print('sticky', sticky_bit)
     return rounded_bit
 
-def leading_zero_count(bit: 'bf16.ubit') -> int:
+def leading_zero_count(bit: ubit) -> int:
     # If there's no 1 in bit, return zero indicator: 256
     if '1' not in bit.bin:
-        return (1 << bf16.Bfloat16.exponent_bits)
+        return (1 << bf16_obj.exponent_bits)
     return (bit.bin+'1').index('1')
 
 
