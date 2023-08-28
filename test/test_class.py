@@ -1,25 +1,24 @@
-from bf16.bf16 import Bfloat16 as bf16
-from bf16.bf16 import Float32 as fp32
 from test.utils import *
+from bf16 import *
 
-from abc import *
+from abc import ABCMeta, abstractmethod
 
 
-#OpFuncType = Callable[[Tuple[Union[FloatType, Any], ...], Union[FloatType, Any]]]
+#OpFuncType = Callable[[Tuple[Union[FloatBaseT, Any], ...], Union[FloatBaseT, Any]]]
 OpFuncType = int
 
 
 class TestAbsClass(metaclass=ABCMeta):
     test_set: list
-    ftype: Type[FloatType]
+    ftype: Type[FloatBaseT]
     _INPUT_NUM: int
     
     @abstractmethod
-    def __init__(self, ftype: Type[FloatType], test_set: list, operation: str) -> None:
+    def __init__(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         pass
 
     @abstractmethod
-    def set(self, ftype: Type[FloatType], test_set: list, operation: str) -> None:
+    def set(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         pass
  
     @abstractmethod
@@ -27,28 +26,28 @@ class TestAbsClass(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_ftype(self, ftype: Type[FloatType]) -> None:
+    def set_ftype(self, ftype: Type[FloatBaseT]) -> None:
         pass
 
     @abstractmethod
-    def _set_f_ops(self, ftype: Type[FloatType]) -> None:
+    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> None:
         pass
 
     @abstractmethod
-    def _set_operation(self, operation_dict: dict, op):
+    def _set_operation(self, operation_dict: Dict, op):
         pass
  
     # this method should be defined in subclasses
     @abstractmethod
-    def _check_test_set(self, test_set: iter):
+    def _check_test_set(self, test_set: List):
         pass
     
     @abstractmethod
-    def _check_input_num(self, v: list):
+    def _check_input_num(self, v: List):
         pass
 
     @abstractmethod
-    def test_body(self, input: tuple):
+    def test_body(self, input: Tuple):
         pass
 
     @abstractmethod
@@ -64,7 +63,7 @@ class TestOperationBase(TestAbsClass):
     """
     Parent class for testing operations
     """
-    test_set: list
+    test_set: List
     ftype: type
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
@@ -76,10 +75,10 @@ class TestOperationBase(TestAbsClass):
         'summation': tf.reduce_sum,
     }
     
-    def __init__(self, ftype: Type[FloatType], test_set: list, operation: str) -> None:
+    def __init__(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         self.set(ftype, test_set, operation)
 
-    def set(self, ftype: Type[FloatType], test_set: list, operation: str) -> None:
+    def set(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         self.test_set, self.ftype = self.set_test_set(test_set), self.set_ftype(ftype)
         self._f_ops = self._set_f_ops(ftype)
         self.operation = self._set_operation(self._f_ops, operation)
@@ -92,13 +91,13 @@ class TestOperationBase(TestAbsClass):
         else:
             raise TypeError(f'{self.__name__} test_set structure should be:\n {self._TEST_SET_STRUCTURE}')
 
-    def set_ftype(self, ftype: Type[FloatType]) -> Type[FloatType]:
+    def set_ftype(self, ftype: Type[FloatBaseT]) -> Type[FloatBaseT]:
         if (ftype == fp32) | (ftype == bf16):
             return ftype
         else:
             raise TypeError('Ftype should be bf16 or fp32 class')
 
-    def _set_f_ops(self, ftype: Type[FloatType]) -> Dict[str, Union[OpFuncType, None]]:
+    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> Dict[str, Union[OpFuncType, None]]:
         return \
         {
             'mul': getattr(ftype, '__mul__', None),
