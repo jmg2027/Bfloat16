@@ -13,8 +13,8 @@ def test():
     #print(f)
     #print(b)
 
-    c = bf16.float_to_bf16(1.6)
-    d = bf16.float_to_bf16(-1.99999988079)
+    c = bf16.from_float(1.6)
+    d = bf16.from_float(-1.99999988079)
 
     #g = c.bf16_to_fp32()
     #print(g)

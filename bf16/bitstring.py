@@ -18,17 +18,15 @@ class BitString:
     TBD:
     bin(1) is now considered as -1. Need to fix this
     """
-    def __init__(self, bitwidth: int, value: str = None) -> None:
-        if value == None:
-            value = '0'
+    def __init__(self, bitwidth: int, value: str) -> None:
         self.set(bitwidth, value)
 
-    def set_bitwidth(self, bitwidth: int):
+    def set_bitwidth(self, bitwidth: int) -> None:
         if not isinstance(bitwidth, int):
             raise TypeError("Bitstring bitwidth should be integer.")
         self.set(bitwidth, self.value)
     
-    def set_bin(self, value: str):
+    def set_bin(self, value: str) -> None:
         if not isinstance(value, str):
             raise TypeError("Bitstring value should be string.")
         self.set(self.bitwidth, value)
@@ -74,10 +72,10 @@ class BitString:
             value = value[2:]
         return value
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.bin)
     
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> 'BitString':
         """
         Supports Verilog type slicing and indexing
         [msb:lsb]

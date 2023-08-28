@@ -25,12 +25,12 @@ import test
 #print(p.decompose_bf16())
 #print((p+C).decompose_bf16())
 
-A = bf16.float_to_bf16(-1.32)
-B = bf16.float_to_bf16(-3.156)
-C = bf16.float_to_bf16(0.00640869)
-D = fp32.float_to_fp32(6.871)
-E = fp32.float_to_fp32(-10.235)
-F = fp32.float_to_fp32(0.00640869)
+A = bf16.from_float(-1.32)
+B = bf16.from_float(-3.156)
+C = bf16.from_float(0.00640869)
+D = fp32.from_float(6.871)
+E = fp32.from_float(-10.235)
+F = fp32.from_float(0.00640869)
 
 #print(A)
 #print(B)
@@ -63,6 +63,6 @@ b = [0x40f4, 0x40af, 0xbf03, 0xc38b, 0xbff9, 0xc479, 0xbb98, 0x418d, 0xbdec, 0x3
 ab = [list(map(bf16.from_hex, a)), list(map(bf16.from_hex, b))]
 print(bf16.summation(ab))
 
-print(bf16.float_to_bf16('-inf').hex())
+print(bf16.from_float('-inf').hex())
 
 print(test.test_add.cast_float(0.1))

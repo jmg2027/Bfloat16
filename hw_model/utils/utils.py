@@ -1,6 +1,7 @@
 from typing import List
 import bf16.bf16 as bf16
 
+
 def radix_4_booth_encoder(bin: str) -> List:
     """
     String binary operand to encoded integer list

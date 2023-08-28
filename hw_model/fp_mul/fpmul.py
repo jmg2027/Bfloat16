@@ -126,7 +126,7 @@ class FloatMultiplication:
         ret_exp_bit_1 = bf16.bit(bf16.Float32.exponent_bits, ret_exp_1.bin)
 
         # Compose BF16
-        mul = bf16.Float32.compose_fp32(ret_sign, ret_exp_bit_1, ret_mant_3)
+        mul = bf16.Float32.compose(ret_sign, ret_exp_bit_1, ret_mant_3)
         # If input is Bfloat16, fp32_to_bf16
         if bf16_input:
             mul = mul.fp32_to_bf16()

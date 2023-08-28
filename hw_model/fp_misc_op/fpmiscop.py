@@ -66,7 +66,7 @@ class FloatPowerofTwo:
         ret_exp_bit_1 = bf16.bit(a_exp.bitwidth, ret_exp_1.bin)
 
         # Compose BF16
-        pow = bf16.Float32.compose_fp32(ret_sign_1, ret_exp_bit_1, ret_mant_1)
+        pow = bf16.Float32.compose(ret_sign_1, ret_exp_bit_1, ret_mant_1)
         if bf16_input:
             pow = pow.fp32_to_bf16()
         return pow
@@ -314,7 +314,7 @@ class FloatInttoFP:
         #print(ret_exp)
         #print(ret_mant)
 
-        inttofp = bf16.Float32.compose_fp32(ret_sign, ret_exp, ret_mant)
+        inttofp = bf16.Float32.compose(ret_sign, ret_exp, ret_mant)
         return inttofp
 
 
@@ -332,7 +332,7 @@ class FloatBfloat16toFloat32:
         ret_exp = a_exp
         ret_mant = a_mant.concat(bf16.ubit(mant_diff_bit, '0'))
 
-        return bf16.Float32.compose_fp32(ret_sign, ret_exp, ret_mant)
+        return bf16.Float32.compose(ret_sign, ret_exp, ret_mant)
 
 
 class FloatFloat32toBfloat16:
@@ -349,4 +349,4 @@ class FloatFloat32toBfloat16:
         ret_exp = a_exp
         ret_mant = bf16.hwutil.round_to_nearest_even_bit(a_mant, 7)
 
-        return bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
+        return bf16.Bfloat16.compose(ret_sign, ret_exp, ret_mant)

@@ -261,6 +261,6 @@ class FloatMRU:
 
         print(out_sign, out_exp, out_frac)
 
-        summation = bf16.Bfloat16.compose_bf16(out_sign, out_exp, out_frac)
+        summation = bf16.Bfloat16.compose(out_sign, out_exp, out_frac)
         return summation
 #        return summation

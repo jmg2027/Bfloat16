@@ -169,7 +169,7 @@ class TestMul(TestOperationBase):
     _INPUT_NUM = 2
     _TEST_SET_STRUCTURE = '[(num1, num2), (num3, num4), ...]'
 
-    def __init__(self, ftype=fp32, test_set = test_set):
+    def __init__(self, ftype: Type[FloatType] = fp32, test_set = test_set):
         super().__init__(ftype, test_set, 'mul')
 
     # this method should be defined in subclasses

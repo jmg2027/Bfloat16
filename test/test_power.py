@@ -1,7 +1,7 @@
 from bf16.bf16 import Bfloat16 as bf16
 
 def test():
-    a = bf16.float_to_bf16(1)
+    a = bf16.from_float(1)
     print(a)
     print(a.pow(1))
     print(a.pow(3))

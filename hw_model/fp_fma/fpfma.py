@@ -306,7 +306,7 @@ class FloatFMA:
         ret_exp = bf16.bit(bf16.Float32.exponent_bits, ret_exp_signed.bin)
 
         # Compose BF16
-        fma = bf16.Float32.compose_fp32(ret_sign, ret_exp, ret_mant)
+        fma = bf16.Float32.compose(ret_sign, ret_exp, ret_mant)
         # If input is Bfloat16, fp32_to_bf16
         if bf16_input:
             fma = fma.fp32_to_bf16()

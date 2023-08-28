@@ -367,5 +367,5 @@ class FloatSummation:
 
         print(out_sign, out_exp, out_frac)
 
-        summation = bf16.Float32.compose_fp32(out_sign, out_exp, out_frac)
+        summation = bf16.Float32.compose(out_sign, out_exp, out_frac)
         return summation

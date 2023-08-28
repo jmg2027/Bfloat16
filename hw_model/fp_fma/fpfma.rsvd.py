@@ -281,5 +281,5 @@ predict the number of leading zeros in the result directly from the input operan
         ret_exp = bf16.bit(bf16.Bfloat16.exponent_bits, ret_exp_signed.bin)
 
         # Compose BF16
-        fma = bf16.Bfloat16.compose_bf16(ret_sign, ret_exp, ret_mant)
+        fma = bf16.Bfloat16.compose(ret_sign, ret_exp, ret_mant)
         return fma

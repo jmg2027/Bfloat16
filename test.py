@@ -1,9 +1,24 @@
-from bf16.bf16 import Bfloat16 as bf16
-from bf16.bf16 import Float32 as fp32
 import numpy as np
 import tensorflow as tf
 
 import test
+import test.utils
+
+from typing import (
+    Union,
+    Type,
+    TypeVar,
+    List,
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Optional
+    )
+
+from bf16.bf16 import Bfloat16 as bf16
+from bf16.bf16 import Float32 as fp32
+from test.utils import FloatType
 
 # make test as new class and define each operations with it
 # such as: 
@@ -21,7 +36,7 @@ def test_pow():
 def test_neg():
     test.test_neg.test()
 
-def test_mul(ftype = fp32):
+def test_mul(ftype: Type[FloatType]  = fp32):
     t = test.test_mul.TestMul(ftype)
     t.test()
 
@@ -84,8 +99,8 @@ def test_random_all(times):
 
 
 if __name__ == "__main__":
-    #test_mul(fp32)
-    test_mul(bf16)
+    test_mul(fp32)
+#    test_mul(bf16)
 #    test_add()
 #    test_fma()
 #    test_summation()

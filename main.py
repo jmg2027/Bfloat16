@@ -91,13 +91,13 @@ def tohex(b):
 
 # float -> fp32 -> sign, exponent, mantissa
 def decompose_float(float_num: float):
-	fp32_obj = fp32.float_to_fp32(float_num)
+	fp32_obj = fp32.from_float(float_num)
 	s, e, m = fp32_obj.decompose()
 	return hex(int(s)), hex(int(e)), hex(int(m))
 
 # hex -> fp32 ex) hex_to_fp32('0x40c00000')
 def hex_to_fp32(h: str) -> 'fp32':
-	return fp32.float_to_fp32(utils.hex_to_float(h[2:]))
+	return fp32.from_float(utils.hex_to_float(h[2:]))
 
 # hex -> sign, exponent, mantissa ex) decompose_hex(0x40c00000)
 def decompose_hex(h: int):
