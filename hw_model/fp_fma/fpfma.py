@@ -1,4 +1,5 @@
-import bf16.bf16 as bf16
+from bf16 import bf16, fp32, bit, sbit, ubit, FloatBaseT, fp32_obj, bf16_obj, bit_zero, bit_one, Type, Generic
+from hw_model import hwutil
 
 class FloatFMA:
     # https://repositories.lib.utexas.edu/bitstream/handle/2152/13269/quinnelle60861.pdf?sequence=2
