@@ -3,65 +3,65 @@ import numpy as np
 import tensorflow as tf
 import struct
 
-def float_to_hex(f):    # f: float number, outout: string hex code
+def float_to_hex(f: float) -> str:    # f: float number, outout: string hex code
     return hex(struct.unpack('<I', struct.pack('<f', f))[0])
 
-def float_to_hex64(f):    # f: float number, outout: string hex code
+def float_to_hex64(f: float) -> str:    # f: float number, outout: string hex code
     return hex(struct.unpack('<Q', struct.pack('<d', f))[0])
 
-def float16_to_hex(f):
+def float16_to_hex(f: np.float16) -> str:
     return hex(struct.unpack('<H', np.float16('f').tobytes())[0])
 
-def double_to_hex(f):
+def double_to_hex(f: int) -> str:
     return hex(struct.unpack('<Q', struct.pack('<d', f))[0])
     
-def double_to_hex64(d):
+def double_to_hex64(d: int) -> str:
     return hex(struct.unpack('<Q', struct.pack('<d', d))[0])
 
-def hex_to_float(f):    # input: string hex w/o 0x, output: float number
+def hex_to_float(f: str) -> float:    # input: string hex w/o 0x, output: float number
     return struct.unpack('!f', bytes.fromhex(f))[0]
 
-def hex_to_double(f):
+def hex_to_double(f: str) -> float:
     return struct.unpack('!d', bytes.fromhex(f))[0]
 
-def hex64_to_double(f):
+def hex64_to_double(f: str) -> float:
     return struct.unpack('!d', bytes.fromhex(f))[0]
 
-def int_to_hex(f):      # input: unsigned integer, output: string hex code
-    packed = struct.pack("I", f)    
-    hex_str = ''.join(f'{x:02x}' for x in packed[::-1])    
+def int_to_hex(f: int) -> str:      # input: unsigned integer, output: string hex code
+    packed: bytes = struct.pack("I", f)    
+    hex_str: str = ''.join(f'{x:02x}' for x in packed[::-1])    
     return hex_str
 
-def int64_to_hex(f):      # input: unsigned integer, output: string hex code
-    packed = struct.pack("Q", f)
-    hex_str = ''.join(f'{x:02x}' for x in packed[::-1])    
+def int64_to_hex(f: int) -> str:      # input: unsigned integer, output: string hex code
+    packed: bytes = struct.pack("Q", f)
+    hex_str: str = ''.join(f'{x:02x}' for x in packed[::-1])    
     return hex_str
 
-def hex_to_int(f):      # input: string hex code, output: integer
+def hex_to_int(f: str) -> int:      # input: string hex code, output: integer
     return int(f, 16)
 
-def fp32_cast_int(f):
+def fp32_cast_int(f: float) -> int:
     return hex_to_int(float_to_hex(f))
 
-def int_cast_fp32(f):
+def int_cast_fp32(f) -> float:
     return hex_to_float(int_to_hex(f)[2:])
 
-def ext_exp(f, b = 8):
+def ext_exp(f: float, b = 8) -> int:
     return (hex_to_int(float_to_hex(f)) & 0x7F800000) >> 23
 
-def ext_sign(f):
+def ext_sign(f: float) -> int:
     return (hex_to_int(float_to_hex(f)) & 0x80000000) >> 31
 
-def ext_mantissa(f, b = 23):
+def ext_mantissa(f: float, b = 23) -> int:
     return hex_to_int(float_to_hex(f)) & 0x7FFFFF
 
-def decomp_fp32(f):
-    s = ext_sign(f)
-    e = ext_exp(f)
-    f = ext_mantissa(f)
+def decomp_fp32(f) -> Tuple[int, int, int]:
+    s: int = ext_sign(f)
+    e: int = ext_exp(f)
+    f: int = ext_mantissa(f)
     return s, e, f
 
-def comp_fp32(s, e, f):
+def comp_fp32(s, e, f) -> np.float32:
     return np.float32(hex_to_float(int_to_hex(s<<31|e<<23|f)))
 
 def convert_float_int(s: int, e: int, f: int, sign_bitpos: int = 63, exp_bits: int = 11, mant_msb: int = 52, mant_bits: int = 7) -> int:
@@ -74,10 +74,10 @@ def convert_float_int(s: int, e: int, f: int, sign_bitpos: int = 63, exp_bits: i
     return (s << sign_bitpos | (e + bias) << mant_msb | f << mant_shft)
 
     
-def bf16_ulp_dist(a, b):
+def bf16_ulp_dist(a: float, b: float) -> int:
     return abs((fp32_cast_int(a)>>16) - (fp32_cast_int(b)>>16))
 
-def float_to_tfbf16(x):
+def float_to_tfbf16(x: float) -> tf.bfloat16: # type: ignore
     """_summary_
     convert fp32 to bf16 using tensorflow type casting
 
@@ -89,7 +89,7 @@ def float_to_tfbf16(x):
     """
     return tf.cast(x, tf.bfloat16)
  
-def float_to_tffp32(x):
+def float_to_tffp32(x) -> tf.float32: # type: ignore
     """_summary_
     convert float to fp32 using tensorflow type casting
     """
@@ -106,7 +106,7 @@ def from_lower_fp_to_higher_fp(sign, exponent, mantissa):
 def get_hidden_bit(exponent: int) -> int:
     return 0 if exponent == 0 else 1
 
-def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7):
+def round_to_nearest_even_mantissa(mant: int, n = 23, m = 7) -> int:
     """
     This method does not care about carry comes out from round up carry from all 1s
     To deal with it, use another method
@@ -146,7 +146,7 @@ def round_and_postnormalize(exp: int, mant: int, n: int = 23, m: int = 7,) -> Tu
     """
     n: bitwidth of round number, m: bitwidth of rounded result
     """
-    rnd_mant = round_to_nearest_even_mantissa(mant, n, m)
+    rnd_mant: int = round_to_nearest_even_mantissa(mant, n, m)
     post_exp, post_mant = post_normalize_mantissa(exp, rnd_mant, m)
     return post_exp, post_mant
 
