@@ -1,4 +1,5 @@
-import bf16.bf16 as bf16
+from bf16 import bf16, fp32, bit, sbit, ubit, FloatBaseT, fp32_obj, bf16_obj, bit_zero, bit_one, Type, Generic
+from hw_model import hwutil
 
 # Summation Unit
 
@@ -50,22 +51,22 @@ class FloatSummation:
     #align_bitwidth = 64
     vector_element_num = 32
     #vector_element_num = 4
-    def __init__(self, vector_list: list):
+    def __init__(self, vector_list: list) -> None:
         self.vector_list = vector_list
         pass
 
-    def set_align_bitwidth(self, n: int):
+    def set_align_bitwidth(self, n: int) -> None:
         # Should set align bitwidth more than 10: mantissa bits + hidden bit + 
-        self.align_bitwidth = n
+        self.align_bitwidth: int = n
 
-    def set_vector_element_num(self, n: int):
+    def set_vector_element_num(self, n: int) -> None:
         # Make it power of 2
-        self.vector_element_num = n
+        self.vector_element_num: int = n
 
-    def set_vector(self, vector: list):
+    def set_vector(self, vector: list) -> None:
         self.vector = vector
     
-    def set_acc(self, fp: 'bf16.Float32'):
+    def set_acc(self, fp: 'bf16.Float32') -> None:
         self.acc = fp
 
     def summation(self):
