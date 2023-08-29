@@ -19,7 +19,7 @@ BitStrT = TypeVar('BitStrT', bound='BitString')
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-class BitString(Generic[BitStrT]):
+class BitString:
 #class BitString:
     """
     BitString class contains binary arithmetics
@@ -373,15 +373,16 @@ class BitString(Generic[BitStrT]):
         return hex(int(self))
 
     @classmethod
-    def from_int(cls, value, width, signed=False):
-        binary_str = format(value, f'0{width}b')
-        return cls(binary_str, width) if not signed else SignedBitString(binary_str, width)
+    def from_int(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+        binary_str: str = format(value, f'0{width}b')
+        return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
 
     @classmethod
-    def from_hex(cls, value, width, signed=False):
-        binary_str = format(int(value, 16), f'0{width}b')
-        return cls(binary_str, width) if not signed else SignedBitString(binary_str, width)
+    def from_hex(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+        binary_str: str = format(int(value, 16), f'0{width}b')
+        return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
     
+    '''
     @classmethod
     def int_to_bit(cls, value: int) -> 'BitString':
         """
@@ -390,17 +391,18 @@ class BitString(Generic[BitStrT]):
         if value < 0:
             raise BitStrValueError('int_to_bit method should not be used with negative integer')
         return BitString(bin(value)[2:])
+    '''
 
     @staticmethod
     def twos_complement(value: str) -> str:
-        inverted = ''.join('1' if bit == '0' else '0' for bit in value)
-        inverted_int = int(inverted, 2) + 1
+        inverted: str = ''.join('1' if bit == '0' else '0' for bit in value)
+        inverted_int: int = int(inverted, 2) + 1
         return bin(inverted_int)[2:]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'[{self.bitwidth-1}:0] {self.bin}'
     
-    def __str__(self):
+    def __str__(self) -> str:
         return self.bin
 
 
@@ -411,39 +413,41 @@ class SignedBitString(BitString):
     """
     def __init__(self, bitwidth: int, value: str) -> None:
         super().__init__(bitwidth, value)
-        self.sign = self.bin[0]
+        self.sign: str = self.bin[0]
     
-    def _sign_extend(self, new_width, value):
-        sign_extension = self.sign * (new_width - len(value))
+    def _sign_extend(self, new_width, value) -> str:
+        sign_extension: str = self.sign * (new_width - len(value))
         return sign_extension + value
 
-    def _apply_extension(self, other, operation, result_bitwidth):
+    def _apply_extension(self, other: "SignedBitString", \
+                        operation: Callable[["SignedBitString", "SignedBitString"], "SignedBitString"], \
+                        result_bitwidth: int) -> "SignedBitString":
         a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
         b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
-        result = operation(a, b)
+        result: SignedBitString = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
-        sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
+        sign_extended_result: str = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
         c = self.__class__(result_bitwidth, sign_extended_result)
         return c
 
     # Absolute value
-    def __abs__(self):
+    def __abs__(self) -> None:
         return
 
     # Formats
-    def __int__(self):
+    def __int__(self) -> int:
         if self.sign == '1':
             return int(f'-{self.twos_complement(self.bin)}', 2)
         else:
             return int(self.bin, 2)
 
-    def __hex__(self):
+    def __hex__(self) -> str:
         return hex(int(self))
 
 
 class UnsignedBitString(BitString):
-    def __init__(self, bitwidth, value):
+    def __init__(self, bitwidth, value) -> None:
         if value == None:
             value = '0'
         # Negative input check
@@ -451,18 +455,20 @@ class UnsignedBitString(BitString):
             raise BitStrValueError('UnsignedBitString cannot handle negative values.')
         super().__init__(bitwidth, value)
 
-    def _apply_extension(self, other, operation, result_bitwidth):
+    def _apply_extension(self, other: "UnsignedBitString", \
+                        operation: Callable[["UnsignedBitString", "UnsignedBitString"], "UnsignedBitString"], \
+                        result_bitwidth: int) -> "UnsignedBitString":
         a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
         b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
-        result = operation(a, b)
+        result: UnsignedBitString = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
-        sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
+        sign_extended_result: str = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
         c = self.__class__(result_bitwidth, sign_extended_result)
         return c
 
     # Unsigned bitstring always extends to zero
-    def _sign_extend(self, new_width, value):
+    def _sign_extend(self, new_width, value) -> str:
         sign_extension = '0' * (new_width - len(value))
         return sign_extension + value
 
