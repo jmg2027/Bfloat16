@@ -1,11 +1,26 @@
 import logging
-from typing import Tuple
+from typing import(
+    Union,
+    Type,
+    TypeVar,
+    List,
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Optional,
+    Literal,
+    Generic,
+)
+
+BitStrT = TypeVar('BitStrT', bound='BitString')
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-class BitString:
+class BitString(Generic[BitStrT]):
+#class BitString:
     """
     BitString class contains binary arithmetics
     Supports verilog type indexing and slicing
@@ -22,13 +37,15 @@ class BitString:
         self.set(bitwidth, value)
 
     def set_bitwidth(self, bitwidth: int) -> None:
-        if not isinstance(bitwidth, int):
-            raise TypeError("Bitstring bitwidth should be integer.")
+        if not isinstance(bitwidth, int) & (bitwidth > 0):
+            raise BitStrTypeError("Bitstring bitwidth should be integer.")
+        if not bitwidth > 0:
+            raise BitStrTypeError("Bitstring bitwidth should be positive.")
         self.set(bitwidth, self.value)
     
     def set_bin(self, value: str) -> None:
         if not isinstance(value, str):
-            raise TypeError("Bitstring value should be string.")
+            raise BitStrTypeError("Bitstring value should be string.")
         self.set(self.bitwidth, value)
 
     def set(self, bitwidth: int, value: str) -> None:
@@ -55,10 +72,10 @@ class BitString:
                 value = self._padding(bitwidth, value, '0')
             
         if not all(p in '01' for p in value):
-            raise ValueError('Bitstring should contain 0 and 1 or in binary string style only')
+            raise BitStrValueError('Bitstring should contain 0 and 1 or in binary string style only')
         
-        self.bin = value
-        self.bitwidth = bitwidth
+        self.bin: str = value
+        self.bitwidth: int = bitwidth
         pass
 
     @classmethod
@@ -75,7 +92,7 @@ class BitString:
     def __len__(self) -> int:
         return len(self.bin)
     
-    def __getitem__(self, index) -> 'BitString':
+    def __getitem__(self: BitStrT, index: Union[slice, int]) -> BitStrT:
         """
         Supports Verilog type slicing and indexing
         [msb:lsb]
@@ -90,25 +107,25 @@ class BitString:
             return_bitstring = self.bin[verilog_index: verilog_index + 1]
             return self.__class__(1, return_bitstring)
         else:
-            raise TypeError('Invalid index type')
+            raise BitStrTypeError('Invalid index type')
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: int, value: str) -> None:
         if isinstance(index, int):
             if value not in '01':
-                raise ValueError('Bitstring should contain 0 and 1 only')
+                raise BitStrValueError('Bitstring should contain 0 and 1 only')
             self.bin = self.bin[:index] + value + self.bin[index + 1]
         else:
-            raise TypeError('Invalid index type')
+            raise BitStrTypeError('Invalid index type')
 
     # Operations
-    def _sign_extend(self, new_width, value):
-        sign_extension = self.bin[0] * (new_width - len(value))
+    def _sign_extend(self, new_width: int, value: str) -> str:
+        sign_extension: str = self.bin[0] * (new_width - len(value))
         return sign_extension + value
 
-    def _apply_extension(self, other, operation, result_bitwidth):
+    def _apply_extension(self: BitStrT, other: BitStrT, operation: Callable[[BitStrT, BitStrT], BitStrT], result_bitwidth: int) -> BitStrT:
         a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
         b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
-        result = operation(a, b)
+        result: BitStrT = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
         sign_extended_result = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
@@ -119,7 +136,7 @@ class BitString:
     # Full adder
     @classmethod
     def add_binary(cls, bin1: str, bin2: str) -> str:
-        max_len = max(len(bin1), len(bin2))
+        max_len: int = max(len(bin1), len(bin2))
         carry = 0
         result = ''
         a, b = cls._padding(max_len, bin1, bin1[0]), cls._padding(max_len, bin2, bin2[0])
@@ -128,7 +145,7 @@ class BitString:
             current_bit_a = int(a[i])
             current_bit_b = int(b[i])
 
-            sum_bit = current_bit_a ^ current_bit_b ^ carry
+            sum_bit: int = current_bit_a ^ current_bit_b ^ carry
             carry = (current_bit_a & current_bit_b) | (current_bit_b & carry) | (carry & current_bit_a)
 
             result = str(sum_bit) + result
@@ -140,10 +157,10 @@ class BitString:
         return result
 
     @classmethod
-    def carry_sum_add_binary(a: str, b: str, c: str) -> str:
+    def carry_sum_add_binary(cls, a: str, b: str, c: str) -> Tuple[str, str]:
         sum = ''
         carry = '0'
-        max_len = max(len(a), len(b), len(c))
+        max_len: int = max(len(a), len(b), len(c))
 
         for i in range(max_len - 1, -1, -1):
             current_bit_a = int(a[i])
@@ -159,178 +176,200 @@ class BitString:
         return sum, carry
 
     @classmethod
-    def carry_sum_add(cls, a: 'BitString', b: 'BitString', c: 'BitString') -> Tuple['BitString', 'BitString']:
+    def carry_sum_add(cls: Type[BitStrT], a: BitStrT, b: BitStrT, c: BitStrT) -> Tuple[BitStrT, BitStrT]:
         sum_bin, carry_bin = cls.carry_sum_add_binary(a.bin, b.bin, c.bin)
         # extend sum bit
-        sum = cls(len(carry_bin), sum_bin)
-        carry = cls(len(carry_bin), carry_bin)
+        sum: BitStrT = cls(len(carry_bin), sum_bin)
+        carry: BitStrT = cls(len(carry_bin), carry_bin)
         return sum, carry
 
     @classmethod
-    def add_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
+    def add_bitstring(cls: Type[BitStrT], bit1: BitStrT, bit2: BitStrT) -> BitStrT:
         result_bin = cls.add_binary(bit1.bin, bit2.bin)
-        bitstring = cls(len(result_bin), result_bin)
+        bitstring: BitStrT = cls(len(result_bin), result_bin)
         return bitstring
     
     @classmethod
-    def mul_bitstring(cls, bit1: 'BitString', bit2: 'BitString') -> 'BitString':
-        bin1, bin2 = bit1.bin, bit2.bin
+    def mul_bitstring(cls: Type[BitStrT], bit1: BitStrT, bit2: BitStrT) -> BitStrT:
+        bin1: str = bit1.bin
+        bin2: str = bit2.bin
         result = '0'
 
         for i, bit in enumerate(reversed(bin2)):
             if bit == '1':
-                partial_product = f'{bin1}{"0" * i}'
+                partial_product: str = f'{bin1}{"0" * i}'
                 result = cls.add_binary(result, partial_product)
 
         return cls(len(bin1) + len(bin2), result)
 
     # Concatenation
-    def concat(self, other: 'BitString') -> 'BitString':
+    def concat(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Concatenation operation needs two Bitstring instances')
+            raise BitStrTypeError('Concatenation operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return self.__class__(len(f'{self.bin}{other.bin}'), f'{self.bin}{other.bin}')
 
     # Unary operators
-    def __neg__(self) -> 'BitString':
+    def __neg__(self: BitStrT) -> BitStrT:
         """
         Two's complement
         """
         return ~self + self.__class__(self.bitwidth, '1')
 
-    def __invert__(self) -> 'BitString':
+    def __invert__(self: BitStrT) -> BitStrT:
         """
         NOT operation
         """
         return self.__class__(self.bitwidth, ''.join('1' if b == '0' else '0' for b in self.bin))
     
     # Reduction operators
-    def reduceand(self) -> 'BitString':
-        result = self[0]
+    def reduceand(self: BitStrT) -> BitStrT:
+        result: BitStrT = self[0]
         for i in range(self.bitwidth):
             result = result & self[i]
         return result
 
-    def reduceor(self) -> 'BitString':
-        result = self[0]
+    def reduceor(self: BitStrT) -> BitStrT:
+        result: BitStrT = self[0]
         for i in range(self.bitwidth):
             result = result | self[i]
         return result
 
-    def reducexor(self) -> 'BitString':
-        result = self[0]
+    def reducexor(self: BitStrT) -> BitStrT:
+        result: BitStrT = self[0]
         for i in range(self.bitwidth):
             result = result ^ self[i]
         return result
 
     # Bitwise
-    def __and__(self, other: 'BitString') -> 'BitString':
+    def __and__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Bitwise AND operation needs two Bitstring instances')
-        result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) & int(b)))
+            raise BitStrTypeError('Bitwise AND operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Bitwise AND operation needs two instances with same class')
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth)
+        op: Callable[[BitStrT, BitStrT], BitStrT] = lambda a, b: self.__class__(result_bitwidth, bin(int(a) & int(b)))
         return self._apply_extension(other, op, result_bitwidth)
 
-    def __or__(self, other: 'BitString') -> 'BitString':
+    # JMG: FIX
+    def __or__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Bitwise OR operation needs two Bitstring instances')
-        result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) | int(b)))
+            raise BitStrTypeError('Bitwise OR operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth)
+        op: Callable[[BitStrT, BitStrT], BitStrT] = lambda a, b: self.__class__(result_bitwidth, bin(int(a) | int(b)))
         return self._apply_extension(other, op, result_bitwidth)
 
-    def __xor__(self, other: 'BitString') -> 'BitString':
+    def __xor__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Bitwise XOR operation needs two Bitstring instances')
-        result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: self.__class__(result_bitwidth, bin(int(a) ^ int(b)))
+            raise BitStrTypeError('Bitwise XOR operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth)
+        op: Callable[[BitStrT, BitStrT], BitStrT]= lambda a, b: self.__class__(result_bitwidth, bin(int(a) ^ int(b)))
         return self._apply_extension(other, op, result_bitwidth)
     
     # Comparison
-    def __lt__(self, other: 'BitString') -> 'BitString':
+    def __lt__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) < int(other)
 
-    def __le__(self, other: 'BitString') -> 'BitString':
+    def __le__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) <= int(other)
 
-    def __eq__(self, other: 'BitString') -> 'BitString':
+    def __eq__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) == int(other)
 
-    def __ne__(self, other: 'BitString') -> 'BitString':
+    def __ne__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) != int(other)
 
-    def __ge__(self, other: 'BitString') -> 'BitString':
+    def __ge__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) >= int(other)
 
-    def __gt__(self, other: 'BitString') -> 'BitString':
+    def __gt__(self: BitStrT, other: BitStrT) -> bool:
         if not isinstance(other, BitString):
-            raise TypeError('Compare operation needs two Bitstring instances')
+            raise BitStrTypeError('Compare operation needs two Bitstring instances')
+        if not (type(self) == type(other)):
+            raise BitStrTypeError('Concatenation operation needs two instances with same class')
         return int(self) > int(other)
 
     # Shift
-    def __lshift__(self, n: int):
+    def __lshift__(self: BitStrT, n: int) -> BitStrT:
         if n > self.bitwidth:
             return self.__class__(self.bitwidth, '0')
         else:
             return self.__class__(self.bitwidth, self.bin[n:] + '0' * n)
 
-    def __rshift__(self, n: int):
+    def __rshift__(self: BitStrT, n: int) -> BitStrT:
         if n > self.bitwidth:
             return self.__class__(self.bitwidth, '0')
         # string [:-0] returns '', so - slicing should not be used
         return self.__class__(self.bitwidth, '0' * n + self.bin[0:self.bitwidth-n])
 
-    def arith_rshift(self, n: int):
+    def arith_rshift(self: BitStrT, n: int) -> BitStrT:
         if n > self.bitwidth:
             return self.__class__(self.bitwidth, self.bin[0] * self.bitwidth)
         # string [:-0] returns '', so - slicing should not be used
         return self.__class__(self.bitwidth, self.bin[0] * n + self.bin[0:self.bitwidth-n])
 
-    def __ilshift__(self, n: int):
+    def __ilshift__(self, n: int) -> None:
         if n > self.bitwidth:
             return self.set_bin('0' * self.bitwidth)
         else:
             return self.set_bin((self.bin[n:] + '0' * n))
 
-    def __irshift__(self, n: int):
+    def __irshift__(self, n: int) -> None:
         if n > self.bitwidth:
             return self.set_bin('0' * self.bitwidth)
         return self.set_bin('0' * n + self.bin[0:self.bitwidth-n])
 
-    def __add__(self, other: 'BitString') -> 'BitString':
+    def __add__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Addition operation needs two Bitstring instances')
+            raise BitStrTypeError('Addition operation needs two Bitstring instances')
         result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: self.add_bitstring(a, b)
+        op: Callable[[BitStrT, BitStrT], BitStrT]= lambda a, b: self.add_bitstring(a, b)
         return self._apply_extension(other, op, result_bitwidth)
 
-    def __sub__(self, other: 'BitString') -> 'BitString':
+    def __sub__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Subtraction operation needs two Bitstring instances')
-        result_bitwidth = max(self.bitwidth, other.bitwidth)
-        op = lambda a, b: self.add_bitstring(a, -b)
+            raise BitStrTypeError('Subtraction operation needs two Bitstring instances')
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth)
+        op: Callable[[BitStrT, BitStrT], BitStrT] = lambda a, b: self.add_bitstring(a, -b)
         return self._apply_extension(other, op, result_bitwidth)
     
-    def __mul__(self, other: 'BitString') -> 'BitString':
+    def __mul__(self: BitStrT, other: BitStrT) -> BitStrT:
         if not isinstance(other, BitString):
-            raise TypeError('Subtraction operation needs two Bitstring instances')
-        result_bitwidth = max(self.bitwidth, other.bitwidth) * 2
-        op = lambda a, b: self.mul_bitstring(a, b)
+            raise BitStrTypeError('Subtraction operation needs two Bitstring instances')
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth) * 2
+        op: Callable[[BitStrT, BitStrT], BitStrT] = lambda a, b: self.mul_bitstring(a, b)
         return self._apply_extension(other, op, result_bitwidth)
     
     # Formats
-    def __int__(self):
+    def __int__(self) -> int:
         return int(self.bin, 2)
 
-    def __hex__(self):
+    def __hex__(self) -> str:
         return hex(int(self))
 
     @classmethod
@@ -349,7 +388,7 @@ class BitString:
         For use of unsigned integer
         """
         if value < 0:
-            raise ValueError('int_to_bit method should not be used with negative integer')
+            raise BitStrValueError('int_to_bit method should not be used with negative integer')
         return BitString(bin(value)[2:])
 
     @staticmethod
@@ -409,7 +448,7 @@ class UnsignedBitString(BitString):
             value = '0'
         # Negative input check
         if value.startswith('-'):
-            raise ValueError('UnsignedBitString cannot handle negative values.')
+            raise BitStrValueError('UnsignedBitString cannot handle negative values.')
         super().__init__(bitwidth, value)
 
     def _apply_extension(self, other, operation, result_bitwidth):
@@ -434,70 +473,25 @@ class UnsignedBitString(BitString):
 
     # Override binary arithmetic operations if needed
 
-if __name__ == '__main__':
-#    a = '0b001111111' # 127
-#    b = bin(1)
-#    c = bin(-12)
-#    d = '-010000001' # -129
-#    A = SignedBitString(9, a)
-#    B = SignedBitString(9, b)
-#    C = SignedBitString(9, c)
-#    D = SignedBitString(9, d)
-#    print('int A: ', int(A))
-#    print('B: ', B)
-#    AB = A+B
-#    print('A + B = ', AB)
-#    print('int(A+B): ', int(AB))
-#    print('int(B): ', int(B))
-#    print('A: ', A)
-#    print('C: ', C)
-#    print('A+C: ', A+C)
-#    print('int(A+C): ', int(A+C))
-#    print('A+D: ', A+D)
-#    print('int(A+D): ', int(A+D))
-#    print('A-D: ', A-D)
-#    print('int(A-D): ', int(A-D))
+    
+class BitStrTypeError(Exception):
+    msg: Dict[str, str] = {
+        'TWO_BITSTRING': 'operation needs two Bitstring instances', 
+        'SAME_CLASS': 'operation needs two instances with same class'
+    }
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
-#    a = '11000000'
-#    b = bin(2)
-#    c = bin(12)
-#    d = '10000000'
-#    A = UnsignedBitString(8, a)
-#    B = UnsignedBitString(8, b)
-#    C = UnsignedBitString(8, c)
-#    D = UnsignedBitString(8, d)
-#    print('B*C: ', B*C)
-#    print('int(B*C): ', int(B*C))
-#    print('A*D: ', A*D, len(A*D))
-#    print('int(A*D): ', int(A*D))
-#    print(B)
-#    AB = A+B
-#    print(AB)
-#    print(int(AB))
-#    print(int(B))
-#    print(int(A+C))
-#    print(int(A+D))
-#    print(int(A-D))
-#    a = '11000110'
-#    b = '11101001000'
-#    A = UnsignedBitString(11, a)
-#    B = UnsignedBitString(11, b)
-#    print(A+B)
-#    print(A>>0)
-#    a=  '11001001'
-#    b=  '11000110'
-#    c = '1111101'
-#    d = '1111100'
-#    A = UnsignedBitString(11, a)
-#    B = UnsignedBitString(11, b)
-    A = UnsignedBitString(16, '0111111111111111')
-    B = UnsignedBitString(16, '1111111111111111')
-    A = SignedBitString(16, '0111111111111111')
-    B = SignedBitString(16, '1111111111111111')
-    print(A.bin)
-    print(B.bin)
-    print(int(A))
-    print(int(B))
-    print(A+B)
-    print(int(A+B))
-    pass
+
+class BitStrValueError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+bit_0 = BitString(1, '0')
+bit_1 = BitString(1, '0')
+
+sbit_0 = SignedBitString(1, '0')
+sbit_1 = SignedBitString(1, '0')
+
+ubit_0 = UnsignedBitString(1, '0')
+ubit_1 = UnsignedBitString(1, '0')
