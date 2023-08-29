@@ -1,5 +1,6 @@
-from bf16.bf16 import Bfloat16 as bf16
 from test.utils import *
+from bf16 import bf16, fp32
+
 
 test_set = [
 		(2, 12),
