@@ -6,8 +6,8 @@ from abc import ABCMeta, abstractmethod
 from typing import Generic
 
 
-#OpFuncType = Callable[[Tuple[Union[FloatBaseT, Any], ...], Union[FloatBaseT, Any]]]
-OpFuncType = int
+FloatTffloatT = TypeVar('FloatTffloatT', bf16, fp32, tfbfloat16, tffloat32)
+OpFuncT = Callable[[Tuple[FloatTffloatT, ...]], FloatTffloatT]
 
 
 class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
@@ -36,28 +36,28 @@ class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _set_operation(self, operation_dict: Dict, op):
+    def _set_operation(self, operation_dict: Dict, op) -> None:
         pass
  
     # this method should be defined in subclasses
     @abstractmethod
-    def _check_test_set(self, test_set: List):
+    def _check_test_set(self, test_set: List) -> None:
         pass
     
     @abstractmethod
-    def _check_input_num(self, v: List):
+    def _check_input_num(self, v: List) -> None:
         pass
 
     @abstractmethod
-    def test_body(self, input: Tuple):
+    def test_body(self, input: Tuple) -> None:
         pass
 
     @abstractmethod
-    def rand_test(self, times: int):
+    def rand_test(self, times: int) -> None:
         pass
 
     @abstractmethod
-    def test(self):
+    def test(self) -> None:
         pass
 
 
@@ -70,22 +70,22 @@ class TestOperationBase(TestAbsClass[FloatBaseT]):
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
 
-    _TF_OPS = {
+    _TF_OPS: Dict[str, OpFuncT] = {
         'mul': lambda a, b: a * b,
         'add': lambda a, b: a + b,
         'fma': lambda a, b, c: a * b + c,
         'summation': tf.reduce_sum,
-    }
+    } # type: ignore
     
     def __init__(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         self.set(ftype, test_set, operation)
 
     def set(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
         self.test_set, self.ftype = self.set_test_set(test_set), self.set_ftype(ftype)
-        self._f_ops = self._set_f_ops(ftype)
+        self._f_ops: Dict[str, Union[OpFuncT, None]] = self._set_f_ops(ftype)
         self.operation = self._set_operation(self._f_ops, operation)
-        self.tf_operation = self._set_operation(self._TF_OPS, operation)
-        self.op = operation
+        self.tf_operation = self._set_operation(self._TF_OPS, operation) # type: ignore
+        self.op: str = operation
  
     def set_test_set(self, test_set: list) -> None:
         if self._check_test_set(test_set):
@@ -99,7 +99,7 @@ class TestOperationBase(TestAbsClass[FloatBaseT]):
         else:
             raise TypeError('Ftype should be bf16 or fp32 class')
 
-    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> Dict[str, Union[OpFuncType, None]]:
+    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> Dict[str, Union[OpFuncT, None]]:
         return \
         {
             'mul': getattr(ftype, '__mul__', None),
@@ -109,9 +109,9 @@ class TestOperationBase(TestAbsClass[FloatBaseT]):
         }
 
     def _set_operation(self, operation_dict: \
-                       Dict[str, Union[OpFuncType, None]], op: str) \
-                        -> Union[OpFuncType, None]:
-        operation = operation_dict.get(op, None)
+                       Dict[str, Union[OpFuncT, None]], op: str) \
+                        -> Union[OpFuncT, None]:
+        operation: Union[OpFuncT, None] = operation_dict.get(op, None)
         if operation is None:
             raise ValueError(f"Unsupported operation {self.op}")
         return operation
@@ -165,5 +165,3 @@ class TestOperationBase(TestAbsClass[FloatBaseT]):
                 fail_list.append(test_res_str)
         check_fail_list(fail_list)
         return
-
-

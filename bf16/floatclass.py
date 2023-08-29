@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+from jaxtyping import BFloat16 as tfbfloat16
+from jaxtyping import Float32 as tffloat32
 
 from abc import ABCMeta, abstractmethod
 from typing import Tuple, Optional, ClassVar, Union, TypeVar, Type, Generic, List
@@ -28,6 +30,8 @@ from hw_model import (
 from hw_model import hwutil
 
 FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+TfFloatT = TypeVar('TfFloatT', tfbfloat16, tffloat32)
+
 
 class FloatBase(Generic[FloatBaseT], metaclass=ABCMeta):
     """
@@ -329,10 +333,7 @@ class Bfloat16(FloatBase):
         f: float = util.hex64_to_double(util.int64_to_hex(f_int))
         return f
 
-    def bf16_to_tfbf16(self) -> tf.bfloat16: # type: ignore
-        """
-        To tensorflow.bfloat16 type
-        """
+    def bf16_to_tfbf16(self) -> tfbfloat16:
         return util.float_to_tfbf16(float(self))
     
     def bf16_to_fp32(self) -> 'Float32':
@@ -373,10 +374,7 @@ class Float32(FloatBase):
         float = util.hex64_to_double(util.int64_to_hex(float_int))
         return float
 
-    def fp32_to_tffp32(self) -> 'tf.float32': # type: ignore
-        """
-        To tensorflow.bfloat16 type
-        """
+    def fp32_to_tffp32(self) -> tffloat32:
         return util.float_to_tffp32(float(self))
     
     def fp32_to_bf16(self) -> 'Bfloat16':

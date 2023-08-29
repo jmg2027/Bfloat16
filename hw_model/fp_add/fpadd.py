@@ -11,19 +11,19 @@ class FloatAddition(Generic[FloatBaseT]):
         # If input is Bfloat16, bf16_to_fp32
         # Make flag of bf16 input
         if isinstance(self.a, bf16):
-            self.a = self.a.bf16_to_fp32()
+            self.a_fp32 = self.a.bf16_to_fp32()
         if isinstance(self.b, bf16):
-            self.b = self.b.bf16_to_fp32()
+            self.b_fp32 = self.b.bf16_to_fp32()
 
         # Decompose Float32 to bitstring class
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
+        a_sign, a_exp, a_mant_nohidden = self.a_fp32.decompose()
+        b_sign, b_exp, b_mant_nohidden = self.b_fp32.decompose()
         a_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{b_mant_nohidden}')
 
         a_exp_signed = sbit(fp32_obj.exponent_bits + 2, f'0{a_exp.bin}')
         b_exp_signed = sbit(fp32_obj.exponent_bits + 2, f'0{b_exp.bin}')
-        bias_signed = sbit(fp32_obj.exponent_bits + 2, bin(self.a.bias))
+        bias_signed = sbit(fp32_obj.exponent_bits + 2, bin(fp32_obj.bias))
 
         ret_sign_0 : bit = bit(1, '0')
         ret_exp_0 : bit = bit(1, '0')
@@ -35,37 +35,37 @@ class FloatAddition(Generic[FloatBaseT]):
         isnormal = False
         # nan + ? -> nan
         # nan inputs clearance
-        if self.a.isnan() or self.b.isnan():
+        if self.a_fp32.isnan() or self.b_fp32.isnan():
             ret_sign_0 = bit(1, '0')
             ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
             ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
         # inf + inf = inf
         # -inf + -inf = -inf
-        elif (self.a.isinf() and self.b.isinf() and (self.a.sign == self.b.sign)):
+        elif (self.a_fp32.isinf() and self.b_fp32.isinf() and (self.a_fp32.sign == self.b_fp32.sign)):
             ret_sign_0 = a_sign
             ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
             ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
         # -inf + +inf = nan
-        elif (self.a.isinf() and self.b.isinf() and (self.a.sign != self.b.sign)):
+        elif (self.a_fp32.isinf() and self.b_fp32.isinf() and (self.a_fp32.sign != self.b_fp32.sign)):
             ret_sign_0 = bit(1, '0')
             ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
             ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
         # inf + not inf = inf
         # -inf + not inf = -inf
-        elif self.a.isinf():
+        elif self.a_fp32.isinf():
             ret_sign_0 = a_sign
             ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
             ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
-        elif self.b.isinf():
+        elif self.b_fp32.isinf():
             ret_sign_0 = b_sign
             ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
             ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
         # zero + x = x
-        elif self.a.iszero():
+        elif self.a_fp32.iszero():
             ret_sign_0 = b_sign
             ret_exp_0 = b_exp
             ret_mant_0 = b_mant_nohidden
-        elif self.b.iszero():
+        elif self.b_fp32.iszero():
             ret_sign_0 = a_sign
             ret_exp_0 = a_exp
             ret_mant_0 = a_mant_nohidden
@@ -197,7 +197,7 @@ class FloatAddition(Generic[FloatBaseT]):
             # 1.111_1111
             if ret_mant_2[ret_mant_2.bitwidth-1:2] == ubit(fp32_obj.mantissa_bits + 2, '1' * (fp32_obj.mantissa_bits + 2)):
                 ret_exp_2 = ret_exp_1 + sbit(ret_exp_0.bitwidth + 2, '01')
-                ret_mant_3 = ubit(fp32_obj.mantissa_bits + 1, f'1{"0" * (fp32_obj.mantissa_bits)}')
+                ret_mant_3: ubit = ubit(fp32_obj.mantissa_bits + 1, f'1{"0" * (fp32_obj.mantissa_bits)}')
             else:
                 # round
                 ret_exp_2 = ret_exp_1
@@ -213,7 +213,7 @@ class FloatAddition(Generic[FloatBaseT]):
             
             # Overflow case: make inf
             # ret_exp_2: 01_0000_0000 ~
-            if ret_exp_2[fp32_obj.exponent_bits + 1:0] >= sbit(fp32_obj.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
+            if ret_exp_2[fp32_obj.exponent_bits + 1:0] >= sbit(fp32_obj.exponent_bits + 1 , bin((1 << fp32_obj.exponent_bits) - 1)):
                 ret_exp_2 = sbit(fp32_obj.exponent_bits, bin((fp32_obj.exp_max + fp32_obj.bias)))
                 ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
             # BF16 assumes denormalized number as zero
@@ -225,7 +225,7 @@ class FloatAddition(Generic[FloatBaseT]):
                 ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
 
             # remove hidden bit
-            ret_mant_4 = ret_mant_3[fp32_obj.mantissa_bits - 1:0]
+            ret_mant_4: bit = ret_mant_3[fp32_obj.mantissa_bits - 1:0]
         # Special case
         else:
             ret_mant_4 = ret_mant_0
@@ -235,8 +235,10 @@ class FloatAddition(Generic[FloatBaseT]):
         ret_exp_bit_2 = bit(fp32_obj.exponent_bits, ret_exp_2.bin)
 
         # Compose FP32
-        add: FloatBaseT = fp32_obj.compose(ret_sign_0, ret_exp_bit_2, ret_mant_4)
+        add_fp32: fp32 = fp32_obj.compose(ret_sign_0, ret_exp_bit_2, ret_mant_4)
         # If input is Bfloat16, fp32_to_bf16
         if isinstance(self.a, bf16) & isinstance(self.b, bf16):
-            add = add.fp32_to_bf16()
+            add = add_fp32.fp32_to_bf16()
+        else:
+            add = add_fp32
         return add
