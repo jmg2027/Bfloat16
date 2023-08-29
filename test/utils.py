@@ -13,13 +13,10 @@ from typing import (
     Optional,
     )
 
-from bf16 import bf16, fp32, FloatType
+from bf16 import bf16, fp32, FloatBaseT
 from bf16.utils import bf16_ulp_dist
 
-FloatType = TypeVar('FloatType', bf16, fp32)
-AnyFloatType = TypeVar('AnyFloatType', bf16, fp32, Any)
-
-def conv_from_float(f: float, ftype: Type[FloatType]) -> FloatType:
+def conv_from_float(f: float, ftype: Type[FloatBaseT]) -> FloatBaseT:
     return ftype.from_float(f)
 
 def convert_to_bf16(num: float) -> bf16:
@@ -28,9 +25,9 @@ def convert_to_bf16(num: float) -> bf16:
 def convert_to_fp32(num: float) -> fp32:
     return fp32.from_float(num)
 
-def conv_to_tf_dtype(num: float, ftype: Type[FloatType] = fp32): # type: ignore
+def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32): # type: ignore
     '''
-    num: float, ftype: Type[FloatType] -> tf.bfloat16, tf.float32
+    num: float, ftype: Type[FloatBaseT] -> tf.bfloat16, tf.float32
     '''
     if ftype == bf16:
         return convert_to_tfbf16(num)
@@ -52,8 +49,8 @@ def convert_int_to_tfbf16(num: int) -> tf.bfloat16: # type: ignore
     return tf.cast(num, tf.bfloat16)
 
 def cast_float(frepr: Union[int, float, bf16, fp32], \
-                ftype: Type[FloatType] = fp32) \
-                -> FloatType:
+                ftype: Type[FloatBaseT] = fp32) \
+                -> FloatBaseT:
     # use float representation for integer inputs
     # integer inputs are used to hex input
     if isinstance(frepr, int) &  (ftype == fp32):
