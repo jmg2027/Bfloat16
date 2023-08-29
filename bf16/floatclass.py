@@ -69,7 +69,9 @@ class FloatBase(Generic[FloatBaseT], metaclass=ABCMeta):
         self.set(sign, exponent, mantissa)
 
     def set(self, sign: int, exponent: int, mantissa: int) -> None:
-        self.sign, self.exponent, self.mantissa = self.set_sign(sign), self.set_exponent(exponent), self.set_mantissa(mantissa)
+        self.sign: int = self.set_sign(sign)
+        self.exponent: int = self.set_exponent(exponent)
+        self.mantissa: int = self.set_mantissa(mantissa)
 
     def set_sign(self, sign: int) -> int:
         if not (sign == 0 or sign == 1):
