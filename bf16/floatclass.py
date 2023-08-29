@@ -325,9 +325,9 @@ class Bfloat16(FloatBase):
         super().__init__(sign, exponent, mantissa)
     
     def to_float(self) -> float:
-        float_int = util.convert_float_int(self.sign, self.exponent, self.mantissa)
-        float = util.hex64_to_double(util.int64_to_hex(float_int))
-        return float
+        f_int: int = util.convert_float_int(self.sign, self.exponent, self.mantissa)
+        f: float = util.hex64_to_double(util.int64_to_hex(f_int))
+        return f
 
     def bf16_to_tfbf16(self) -> tf.bfloat16: # type: ignore
         """
