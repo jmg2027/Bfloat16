@@ -25,6 +25,11 @@ class FloatAddition(Generic[FloatBaseT]):
         b_exp_signed = sbit(fp32_obj.exponent_bits + 2, f'0{b_exp.bin}')
         bias_signed = sbit(fp32_obj.exponent_bits + 2, bin(self.a.bias))
 
+        ret_sign_0 : bit = bit(1, '0')
+        ret_exp_0 : bit = bit(1, '0')
+        ret_mant_0: bit = bit(1, '0')
+        
+
         # Special cases
         #input
         isnormal = False
@@ -73,16 +78,16 @@ class FloatAddition(Generic[FloatBaseT]):
             # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6489167
             # Exponent calculation
             # Calculate Exponent differences
-            exp_diff = a_exp_signed - b_exp_signed
+            exp_diff: sbit = a_exp_signed - b_exp_signed
             #print('a_exp_signed:',a_exp_signed)
             #print('b_exp_signed:',b_exp_signed)
-            exp_diff_abs = abs(int(exp_diff))
+            exp_diff_abs: int = abs(int(exp_diff))
             #print('sum exp diff', exp_diff)
             # Set flags
             a_exp_gt_b = exp_diff > sbit(1, '0')
             a_exp_eq_b = exp_diff == sbit(1, '0')
             a_mant_gt_b = a_mant_us >= b_mant_us
-            subtract_mant = a_sign ^ b_sign
+            subtract_mant: bit = a_sign ^ b_sign
             # Prenormalized Exponent
             if a_exp_gt_b:
                 ret_exp_0 = a_exp_signed
@@ -165,7 +170,7 @@ class FloatAddition(Generic[FloatBaseT]):
             # Exponent adjust with normalize/Add
             # Sub: in case of 00.0...0xx shift amount = lzc + 1
             if subtract_mant == bit(1, '1'):
-                shift_amt = hwutil.leading_zero_count(ret_mant_0[ret_mant_0.bitwidth-2:0]) 
+                shift_amt: int = hwutil.leading_zero_count(ret_mant_0[ret_mant_0.bitwidth-2:0]) 
                 ret_mant_1 = ret_mant_0 << shift_amt
                 exp_adj = -shift_amt
             # Add, carry occured
@@ -230,7 +235,7 @@ class FloatAddition(Generic[FloatBaseT]):
         ret_exp_bit_2 = bit(fp32_obj.exponent_bits, ret_exp_2.bin)
 
         # Compose FP32
-        add = fp32_obj.compose(ret_sign_0, ret_exp_bit_2, ret_mant_4)
+        add: FloatBaseT = fp32_obj.compose(ret_sign_0, ret_exp_bit_2, ret_mant_4)
         # If input is Bfloat16, fp32_to_bf16
         if isinstance(self.a, bf16) & isinstance(self.b, bf16):
             add = add.fp32_to_bf16()
