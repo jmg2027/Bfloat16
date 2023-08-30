@@ -1,5 +1,8 @@
-from bf16 import bf16, fp32, bit, sbit, ubit, FloatBaseT, fp32_obj, bf16_obj, bit_zero, bit_one, Type, Generic
+from bf16 import *
 from hw_model import hwutil
+from typing import Union
+from math import log2
+
 
 class FloatPowerofTwo:
     
@@ -8,8 +11,8 @@ class FloatPowerofTwo:
     For given a, return n power of 2
     a: Bfloat16, n: signed integer
     """
-    def __init__(self, a: FloatBaseT, n: int) -> None:
-        self.a: FloatBaseT = a
+    def __init__(self, a: Union[bf16, fp32], n: int) -> None:
+        self.a: Union[bf16, fp32] = a
         self.n: int = n
 
     def power(self) -> fp32:
@@ -121,9 +124,15 @@ class FloatFPtoInt:
     7 bits for mantissa under point
     1xx....xx   .   xxxxxxx
     < 15bits><point>< mant>
+    // mod              rnd_mod
+    // 0: fp32          0: round to nearest even
+    // 1: bf16          1: floor => truncation
+    //                  2: ceil  => always rounding, round to infinity
     """
-    def __init__(self, a: fp32) -> None:
+    def __init__(self, a: Union[bf16, fp32], mod: int = 0, rnd_mod: int = 0) -> None:
         self.a = a
+        self.mod = mod
+        self.rnd_mod = rnd_mod
         pass
 
     def fptoint(self) -> int:
@@ -131,28 +140,78 @@ class FloatFPtoInt:
         # Make flag of bf16 input
         bf16_input = isinstance(self.a, bf16)
         if bf16_input:
-            self.a = self.a.bf16_to_fp32()
+            a_fp32 = self.a.bf16_to_fp32()
+        elif isinstance(self.a, fp32):
+            a_fp32= self.a
+        else:
+            raise FloatTypeError('not allowed in fptoint')
 
-        output_bitwidth = 1 + Float32.exponent_bits + Float32.mantissa_bits
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
-        a_mant_us = ubit(self.a.mantissa_bits + 1, f'{a_exp.reduceor()}{a_mant_nohidden}')
+        output_bitwidth = 1 + fp32_obj.exponent_bits + fp32_obj.mantissa_bits
+        a_sign, a_exp, a_mant_nohidden = a_fp32.decompose()
+        sig = ubit(output_bitwidth + fp32_obj.mantissa_bits, f'1{a_mant_nohidden}')
+        sh_sig = ubit(output_bitwidth + fp32_obj.mantissa_bits, '0')
+        ans = ubit(output_bitwidth, '0')
+        shamt = ubit(int(log2(output_bitwidth)), f'{int(a_exp) - fp32_obj.bias}')
+        ulp = ubit(1, '0')
+        rnd = ubit(1, '0')
+        stk = ubit(1, '0')
+        rndup = ubit(1, '0')
+
+        if (int(a_exp) >= fp32_obj.bias + output_bitwidth - 1): # 127 + 31 -> max or overflow -> saturation
+            if (a_sign == ubit(1, '1')): # negative
+                ans.set_bin(bin(1 << 32))
+            else:
+                ans.set_bin(bin((1 << 32) - 1))
+        elif (int(a_exp) >= fp32_obj.bias): # normal conversion, shift and round
+            sh_sig = sig << int(shamt)
+            ulp.set_bin(sh_sig[fp32_obj.mantissa_bits].bin)
+            rnd.set_bin(sh_sig[fp32_obj.mantissa_bits-1].bin)
+            stk.set_bin(bin(int(sh_sig[fp32_obj.mantissa_bits-2:0] != 0)))
+            rndup.set_bin(((ulp & rnd) | (rnd & stk)).bin)
+            if (self.rnd_mod == 0):
+                sh_sig = sh_sig + rndup
+            elif (self.rnd_mod == 1):
+                sh_sig = sh_sig
+            else:
+                sh_sig = sh_sig + ubit(1, '1')
+            ans.set_bin(sh_sig[output_bitwidth+fp32_obj.mantissa_bits:fp32_obj.mantissa_bits].bin)
+        else:
+            ans.set_bin('0')
+
+        int_result = ans
+        return int(int_result)
+
+    def fptoint2(self):
+        # If input is Bfloat16, bf16_to_fp32
+        # Make flag of bf16 input
+        bf16_input = isinstance(self.a, bf16)
+        if bf16_input:
+            a_fp32 = self.a.bf16_to_fp32()
+        elif isinstance(self.a, fp32):
+            a_fp32= self.a
+        else:
+            raise FloatTypeError('not allowed in fptoint')
+
+        output_bitwidth = 1 + fp32_obj.exponent_bits + fp32_obj.mantissa_bits
+        a_sign, a_exp, a_mant_nohidden = a_fp32.decompose()
+        a_mant_us = bit(fp32_obj.mantissa_bits + 1, f'{a_exp.reduceor()}{a_mant_nohidden}')
         a_exp_signed = sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
-        bias_signed = sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+        bias_signed = sbit(a_exp.bitwidth + 2, bin(a_fp32.bias))
 
         exp_unbiased = int(a_exp_signed - bias_signed)
-        mant_unshifted = ubit(output_bitwidth + Float32.mantissa_bits - 1, a_mant_us.bin)
+        mant_unshifted = ubit(output_bitwidth + fp32_obj.mantissa_bits - 1, a_mant_us.bin)
 
         # without sign bit
         # int(no sign) 15 + mant 7
         mant_shifted = mant_unshifted << exp_unbiased
-        int_trunc = mant_shifted[output_bitwidth + Float32.mantissa_bits - 2:Float32.mantissa_bits]
+        int_trunc = mant_shifted[output_bitwidth + fp32_obj.mantissa_bits - 2:fp32_obj.mantissa_bits]
         int_before_sign = sbit(output_bitwidth, f'0{str(int_trunc)}')
 
         if exp_unbiased > output_bitwidth - 2:
             if a_sign == bit(1, '1'):
-                int_result = sbit(output_bitwidth, bin(1 << (Float32.sign_bitpos-1)))
+                int_result = sbit(output_bitwidth, bin(1 << (fp32_obj.sign_bitpos-1)))
             else:
-                int_result = sbit(output_bitwidth, bin((1 << (Float32.sign_bitpos-1)) - 1))
+                int_result = sbit(output_bitwidth, bin((1 << (fp32_obj.sign_bitpos-1)) - 1))
         elif exp_unbiased < 0:
             int_result = sbit(output_bitwidth, '0')
         else:
@@ -181,16 +240,88 @@ class FloatInttoFP:
     add ceiling and flooring
     """
     sticky_bits = 22
-    def __init__(self, a: int) -> None:
+    def __init__(self, a: int, mod: int = 0) -> None:
         self.a = a
+        self.mod = mod
         pass
 
     def set_sticky_bits(self, n: int) -> None:
         self.sticky_bits = n
         return
+    
+    def inttofp(self) -> Union[bf16, fp32]:
+        #fp_out = 0
+        fp_out: Union[bf16, fp32]
+        if (self.a == 0):
+            if (self.mod == 1):
+                fp_out = fp32(0, 0, 0)
+            else:
+                fp_out = bf16(0, 0, 0)
+        elif (self.a == 0x8000_0000):
+            if (self.mod == 1):
+                fp_out = fp32.from_hex(0xCF00_0000)
+            else:
+                fp_out = bf16.from_hex(0xCF00)
+        else:
+            # check for negative integer
+            a: ubit = ubit.from_int(32, self.a)
 
-    def inttofp(self):
-        output_bitwidth = 1 + Float32.exponent_bits + Float32.mantissa_bits
+            sign= ubit(1, '0')
+            lsb= ubit(1, '0')
+            rnd= ubit(1, '0')
+            sticky= ubit(1, '0')
+            roundup= ubit(1, '0')
+            
+            mag= ubit(32, '0')
+            significant= ubit(32, '0')
+
+            exp= ubit(8, '0')
+            new_exp= ubit(8, '0')
+            final_exp= ubit(8, '0')
+
+            num_zeros= int
+
+            sig25= ubit(25, '0')
+            frac = ubit(23, '0')
+
+            sign = a[31]
+            mag = a if (sign == ubit(1, '1')) else -a
+            exp.set_bin(bin(157)) # to compensate binary point of integer 31bit data
+                      # 127 + 30
+            num_zeros = hwutil.leading_zero_count(mag)
+            new_exp = exp - ubit(8, bin(num_zeros))
+            significant.set_bin((mag << num_zeros).bin)
+            if (self.mod == 1):
+                # how does this work if bitwidth is different?
+                lsb = significant[7]
+                #lsb.set_bin(significant[7].bin)
+                rnd.set_bin(significant[6].bin)
+                sticky.set_bin(bin(significant[5:0] != 0))
+
+                roundup.set_bin(((rnd & lsb) | (rnd & sticky)).bin)
+
+                sig25.set_bin((significant[30:7] + roundup).bin)
+
+                frac.set_bin((sig25[23:1] if (sig25[24] == ubit(1, '1')) else sig25[22:0]).bin)
+                final_exp.set_bin((new_exp + ubit(1, '1') if (sig25[24] == ubit(1, '1')) else new_exp).bin)
+
+                fp_out: fp32 = fp32.compose(sign, final_exp, frac)
+            else:
+                lsb.set_bin(significant[23].bin)
+                rnd.set_bin(significant[22].bin)
+                sticky.set_bin(bin(significant[21:0] != 0))
+                roundup.set_bin(((rnd & lsb) | (rnd & sticky)).bin)
+
+                sig25.set_bin((significant[30:23] + roundup).bin)
+
+                frac.set_bin((sig25[7:1] if (sig25[8] == ubit(1, '1')) else sig25[6:0]).bin)
+                final_exp.set_bin((new_exp + ubit(1, '1') if (sig25[8] == ubit(1, '1')) else new_exp).bin)
+
+                fp_out: bf16 = bf16.compose(sign, final_exp, frac)
+        return fp_out
+
+    def inttofp2(self):
+        output_bitwidth = 1 + fp32_obj.exponent_bits + fp32_obj.mantissa_bits
         round_bits = self.sticky_bits + 1
         a = self.a
         a_bitstring = sbit(output_bitwidth, bin(a))
@@ -204,10 +335,10 @@ class FloatInttoFP:
         # remove sign bit
         int_unsigned = ubit(output_bitwidth-1, a_unsigned[output_bitwidth-2:0].bin)
         # extend shift register
-        int_extended = int_unsigned.concat(ubit(Float32.mantissa_bits + round_bits, '0'))
-        a_exp_preshift = ubit(Float32.exponent_bits, bin(Float32.bias))
+        int_extended = int_unsigned.concat(ubit(fp32_obj.mantissa_bits + round_bits, '0'))
+        a_exp_preshift = ubit(fp32_obj.exponent_bits, bin(fp32_obj.bias))
         shift_amount = 0
-        int_shift_bitwidth = (output_bitwidth-1) + Float32.mantissa_bits + round_bits
+        int_shift_bitwidth = (output_bitwidth-1) + fp32_obj.mantissa_bits + round_bits
 
         # find leading one in [int_shift_bitwidth - 1:int_shift_bitwidth - (output_bitwidth-2)] 
         # [28:15] -> 14
@@ -284,28 +415,28 @@ class FloatInttoFP:
 
         int_shifted = int_extended >> shift_amount
         
-        a_exp_preround = a_exp_preshift + ubit(Float32.exponent_bits, bin(shift_amount))
+        a_exp_preround = a_exp_preshift + ubit(fp32_obj.exponent_bits, bin(shift_amount))
 
-        int_mant_part = int_shifted[Float32.mantissa_bits + round_bits:0]
+        int_mant_part = int_shifted[fp32_obj.mantissa_bits + round_bits:0]
         #print(repr(int_mant_part))
 
         # round and postnormalize
-        if int_mant_part[Float32.mantissa_bits + round_bits:round_bits-1].bin == '1' * (Float32.mantissa_bits + 2):
-            a_exp = a_exp_preround + ubit(Float32.exponent_bits, '1')
-            int_shifted_rounded = ubit(Float32.mantissa_bits + 1, f'1{"0" * (Float32.mantissa_bits + 1)}')
+        if int_mant_part[fp32_obj.mantissa_bits + round_bits:round_bits-1].bin == '1' * (fp32_obj.mantissa_bits + 2):
+            a_exp = a_exp_preround + ubit(fp32_obj.exponent_bits, '1')
+            int_shifted_rounded = ubit(fp32_obj.mantissa_bits + 1, f'1{"0" * (fp32_obj.mantissa_bits + 1)}')
         else:
             a_exp = a_exp_preround
             int_shifted_rounded = hwutil.round_to_nearest_even_bit(int_mant_part, Float32.mantissa_bits+1)
         
-        a_mant = int_shifted_rounded[Float32.mantissa_bits-1:0]
+        a_mant = int_shifted_rounded[fp32_obj.mantissa_bits-1:0]
 
         # check for zero input
         a_is_zero = (a_bitstring.reduceor() == bit(1, '0'))
 
         if a_is_zero:
             ret_sign = ubit(1, '0')
-            ret_exp = ubit(Float32.exponent_bits, '0')
-            ret_mant = ubit(Float32.mantissa_bits, '0')
+            ret_exp = ubit(fp32_obj.exponent_bits, '0')
+            ret_mant = ubit(fp32_obj.mantissa_bits, '0')
         else:
             ret_sign = a_sign
             ret_exp = a_exp
@@ -315,39 +446,56 @@ class FloatInttoFP:
         #print(ret_exp)
         #print(ret_mant)
 
-        inttofp = Float32.compose(ret_sign, ret_exp, ret_mant)
+        inttofp = fp32.compose(ret_sign, ret_exp, ret_mant)
         return inttofp
 
 
 class FloatBfloat16toFloat32:
-    def __init__(self, a: bf16):
-        self.a = a
+    def __init__(self, a: bf16) -> None:
+        self.a: bf16 = a
         pass
 
-    def bf16_to_fp32(self):
+    def bf16_to_fp32(self) -> fp32[FloatBaseT]:
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
-        mant_diff_bit = Float32.mantissa_bits - Bfloat16.mantissa_bits
+        mant_diff_bit = fp32_obj.mantissa_bits - bf16_obj.mantissa_bits # 16
 
         ret_sign = a_sign
         ret_exp = a_exp
         ret_mant = a_mant.concat(ubit(mant_diff_bit, '0'))
 
-        return Float32.compose(ret_sign, ret_exp, ret_mant)
+        return fp32.compose(ret_sign, ret_exp, ret_mant)
 
 
 class FloatFloat32toBfloat16:
-    def __init__(self, a: fp32):
+    def __init__(self, a: fp32) -> None:
         self.a = a
         pass
 
-    def fp32_to_bf16(self):
+    def fp32_to_bf16(self) -> bf16:
         # Decompose Float32 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
-        mant_diff_bit = Float32.mantissa_bits - Bfloat16.mantissa_bits
+        mant_diff_bit = fp32_obj.mantissa_bits - bf16_obj.mantissa_bits
+
+        rnd = a_mant[15]
+        stk = bit(1, f'{a_mant[14:0] != 0}')
+        rndup = bit(1, f'{(a_mant[16] & rnd) | (rnd & stk)}')
 
         ret_sign = a_sign
         ret_exp = a_exp
+
+        if ((a_mant[22:16] == bit(7, bin(0x7F)))):
+            ret_mant = bit(1, '0')
+            if (int(a_exp) != 255):
+                ret_exp = a_exp + bit(1, '1')
+        else:
+            ret_mant = a_mant + rndup.concat(bit(mant_diff_bit, '0'))
+
+
+        '''
+        ret_sign = a_sign
+        ret_exp = a_exp
         ret_mant = hwutil.round_to_nearest_even_bit(a_mant, 7)
+        '''
 
         return bf16.compose(ret_sign, ret_exp, ret_mant)
