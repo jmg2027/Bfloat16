@@ -28,6 +28,7 @@ class BitStringAbsClass(metaclass=ABCMeta):
     BitString class contains binary arithmetics\n
     Supports verilog type indexing and slicing\n
     You should specify bitwidth. If so, value is '0 or '1 for its sign\n
+    Input: '0101', '-0b011', '-1010', 'bin(10)', 'bin(0x7F)',... \n
     Input: string of '01' or binary string (You may use bin() or f'{int:b}' or just string)\n
     For negative number, only stores 2's complement and not sign attribute\n
     Operation results are given in its full bitwidth. Handle overflow with set_bitwidth
@@ -37,10 +38,10 @@ class BitStringAbsClass(metaclass=ABCMeta):
     bin(1) is now considered as -1. Need to fix this
     """
 
-    bitwidth: int = 0
-    value: str = '0'
+    bitwidth: int
+    value: str
 
-    def __init__(self, bitwidth: int, value: str) -> None:
+    def __init__(self, bitwidth: int = 1, value: str = '0') -> None:
         self.set(bitwidth, value)
 
     def set_bitwidth(self, bitwidth: int) -> None:
@@ -379,12 +380,12 @@ class BitStringAbsClass(metaclass=ABCMeta):
         return hex(int(self))
 
     @classmethod
-    def from_int(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+    def from_int(cls: Type[BitStrT], width: int, value: str, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
         binary_str: str = format(value, f'0{width}b')
         return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
 
     @classmethod
-    def from_hex(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+    def from_hex(cls: Type[BitStrT], width: int, value: str, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
         binary_str: str = format(int(value, 16), f'0{width}b')
         return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
     
@@ -768,12 +769,12 @@ class BitString:
         return hex(int(self))
 
     @classmethod
-    def from_int(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+    def from_int(cls: Type[BitStrT], width: int, value: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
         binary_str: str = format(value, f'0{width}b')
         return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
 
     @classmethod
-    def from_hex(cls: Type[BitStrT], value: str, width: int, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
+    def from_hex(cls: Type[BitStrT], width: int, value: str, signed: bool = False) -> Union[BitStrT, 'SignedBitString']:
         binary_str: str = format(int(value, 16), f'0{width}b')
         return cls(width, binary_str) if not signed else SignedBitString(width, binary_str)
     
