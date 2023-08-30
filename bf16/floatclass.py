@@ -299,7 +299,7 @@ class FloatBase(Generic[FloatBaseT], metaclass=ABCMeta):
     def __repr__(self):
         return f"{self.__class__.__name__}(sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
 
-class Bfloat16(FloatBase):
+class Bfloat16(FloatBase[FloatBaseT]):
     """
      - Bfloat16
     16-bit Floating point representation
@@ -336,7 +336,7 @@ class Bfloat16(FloatBase):
     def bf16_to_tfbf16(self) -> tfbfloat16:
         return util.float_to_tfbf16(float(self))
     
-    def bf16_to_fp32(self) -> 'Float32':
+    def bf16_to_fp32(self) -> 'Float32[FloatBaseT]':
         """
         FIX: Bfloat16 -> Float32
         """
@@ -345,7 +345,7 @@ class Bfloat16(FloatBase):
     
 
 
-class Float32(FloatBase):
+class Float32(FloatBase[FloatBaseT]):
     """
      - Float32
     Single precision 32-bit Floating point representation
@@ -377,7 +377,7 @@ class Float32(FloatBase):
     def fp32_to_tffp32(self) -> tffloat32:
         return util.float_to_tffp32(float(self))
     
-    def fp32_to_bf16(self) -> 'Bfloat16':
+    def fp32_to_bf16(self) -> 'Bfloat16[FloatBaseT]':
         """
         FIX: Float32 to Bfloat16
         """
