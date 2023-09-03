@@ -1,5 +1,8 @@
-from bf16.bf16 import Bfloat16 as bf16
+from bf16 import *
 from test.utils import *
+from test.test_class import TestOperationBase
+
+from typing_extensions import Self
 
 # FAILED FMA(-30408704.0, 3.844499588012695e-06, -0.310546875), bf16: Bfloat16(-117.0, sign = 1, exponent=6, mantissa=106), tfbf16: -117.5
 # FAILED FMA(474.0, -44544.0, -458752.0), bf16: Bfloat16(-21626880.0, sign = 1, exponent=24, mantissa=37), tfbf16: -2.14958e+07

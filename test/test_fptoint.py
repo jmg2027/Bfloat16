@@ -1,5 +1,9 @@
-from bf16.bf16 import Bfloat16 as bf16
+from bf16 import *
 from test.utils import *
+from test.test_class import TestOperationBase
+
+from typing_extensions import Self
+
 
 test_set = [
     0.0,

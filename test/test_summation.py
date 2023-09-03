@@ -1,5 +1,8 @@
-from bf16.bf16 import Bfloat16 as bf16
+from bf16 import *
 from test.utils import *
+from test.test_class import TestOperationBase
+
+from typing_extensions import Self
 
 bf16_mant_max = float(bf16(0, 0, 127))
 # Match vector_element_num to FloatSummation.vector_element_num

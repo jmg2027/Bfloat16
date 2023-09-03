@@ -16,9 +16,8 @@ from typing import (
     Optional
     )
 
-from bf16.bf16 import Bfloat16 as bf16
-from bf16.bf16 import Float32 as fp32
-from test.utils import FloatType
+from bf16 import *
+
 
 # make test as new class and define each operations with it
 # such as: 
@@ -36,7 +35,7 @@ def test_pow():
 def test_neg():
     test.test_neg.test()
 
-def test_mul(ftype: Type[FloatType]  = fp32):
+def test_mul(ftype: Type[FloatBaseT] = fp32):
     t = test.test_mul.TestMul(ftype)
     t.test()
 
@@ -66,8 +65,9 @@ def test_all():
     test_fptoint()
     test_inttofp()
 
-def test_rand_mul(times):
-    test.test_mul.rand_test(times)
+def test_rand_mul(times, ftype: Type[FloatBaseT]):
+    t = test.test_mul.TestMul(ftype)
+    t.rand_test(times)
     return
 
 def test_rand_add(times):

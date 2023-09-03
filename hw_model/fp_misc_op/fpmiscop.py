@@ -1,21 +1,22 @@
 from bf16 import *
-from hw_model import hwutil
-from typing import Union
+from typing import Union, Generic, Literal, TypeVar
+from typing_extensions import TypeAlias
 from math import log2
 
 
-class FloatPowerofTwo:
+#class FloatPowerofTwo(Generic[FloatBaseT]):
+class FloatPowerofTwo(Generic[FloatBaseT]):
     
     """
     FloatPowerofTwo
     For given a, return n power of 2
     a: Bfloat16, n: signed integer
     """
-    def __init__(self, a: Union[bf16, fp32], n: int) -> None:
-        self.a: Union[bf16, fp32] = a
+    def __init__(self, a: FloatBaseT, n: int) -> None:
+        self.a: FloatBaseT = a
         self.n: int = n
 
-    def power(self) -> fp32:
+    def power(self) -> FloatBaseT:
         # If input is Bfloat16, bf16_to_fp32
         # Make flag of bf16 input
         bf16_input: bool = isinstance(self.a, bf16)
@@ -35,7 +36,7 @@ class FloatPowerofTwo:
         # zero
         a_isnormal = False
         if self.a.iszero():
-            ret_exp_0 = 0
+            ret_exp_0: sbit = sbit(a_exp.bitwidth + 2, '0')
         # inf
         elif self.a.isinf():
             ret_exp_0: sbit = signed_a_exp
@@ -46,18 +47,17 @@ class FloatPowerofTwo:
         else:
             a_isnormal = True
             ret_exp_0: sbit = signed_a_exp + signed_n
-
         
         # output
         if a_isnormal:
             # Overflow case: make inf
             if ret_exp_0 > sbit(ret_exp_0.bitwidth + 2 , bin((1 << self.a.exponent_bits) - 1)):
                 ret_exp_1 = sbit(a_exp.bitwidth + 2, bin((1 << self.a.exponent_bits) - 1))
-                ret_mant_1 = 0
+                ret_mant_1 = bit(a_mant.bitwidth, '0')
             # Underflow case: make zero
             elif ret_exp_0 < sbit(ret_exp_0.bitwidth + 2, bin(0)):
                 ret_exp_1 = sbit(a_exp.bitwidth + 2, '0')
-                ret_mant_1 = 0
+                ret_mant_1 = bit(a_mant.bitwidth, '0')
             else:
                 ret_exp_1 = ret_exp_0
                 ret_mant_1 = a_mant
@@ -76,17 +76,17 @@ class FloatPowerofTwo:
         return pow
 
 
-class FloatNegative:
+class FloatNegative(Generic[FloatBaseT]):
     
     """
     FloatNegative
     For given a, return negative a
     a: Bfloat16
     """
-    def __init__(self, a: bf16) -> None:
+    def __init__(self, a: FloatBaseT) -> None:
         self.a = a
 
-    def negative(self) -> bf16:
+    def negative(self) -> FloatBaseT:
         # If input is Bfloat16, bf16_to_fp32
         # Make flag of bf16 input
         bf16_input = isinstance(self.a, bf16)
@@ -112,7 +112,7 @@ class FloatNegative:
         return neg
 
 
-class FloatFPtoInt:
+class FloatFPtoInt(Generic[FloatBaseT]):
     """
     FloatFPtoInt
     Bfloat16 -> Signed Integer (16bits output)
@@ -129,7 +129,7 @@ class FloatFPtoInt:
     // 1: bf16          1: floor => truncation
     //                  2: ceil  => always rounding, round to infinity
     """
-    def __init__(self, a: Union[bf16, fp32], mod: int = 0, rnd_mod: int = 0) -> None:
+    def __init__(self, a: FloatBaseT, mod: int = 0, rnd_mod: int = 0) -> None:
         self.a = a
         self.mod = mod
         self.rnd_mod = rnd_mod
@@ -222,11 +222,12 @@ class FloatFPtoInt:
                 int_result = int_before_sign
         return int(int_result)
 
+ModT = TypeVar('ModT', Literal[0], Literal[1])
 
-class FloatInttoFP:
+class FloatInttoFP(Generic[FloatBaseT]):
     """
     FloatInttoFP
-    Int -> Float32
+    Mod == 0: Int -> Bfloat16 Mod == 1: Int -> Float32 
     - Algorithm
     save sign and make two's complement
     31 bits for integer without sign
@@ -240,7 +241,7 @@ class FloatInttoFP:
     add ceiling and flooring
     """
     sticky_bits = 22
-    def __init__(self, a: int, mod: int = 0) -> None:
+    def __init__(self, a: int, mod: Union[Literal[0], Literal[1]] = 0) -> None:
         self.a = a
         self.mod = mod
         pass
@@ -249,9 +250,9 @@ class FloatInttoFP:
         self.sticky_bits = n
         return
     
-    def inttofp(self) -> Union[bf16, fp32]:
+    #def inttofp(self) -> Union[bf16, fp32]:
+    def inttofp(self) -> FloatBaseT:
         #fp_out = 0
-        fp_out: Union[bf16, fp32]
         if (self.a == 0):
             if (self.mod == 1):
                 fp_out = fp32(0, 0, 0)
@@ -305,7 +306,7 @@ class FloatInttoFP:
                 frac.set_bin((sig25[23:1] if (sig25[24] == ubit(1, '1')) else sig25[22:0]).bin)
                 final_exp.set_bin((new_exp + ubit(1, '1') if (sig25[24] == ubit(1, '1')) else new_exp).bin)
 
-                fp_out: fp32 = fp32.compose(sign, final_exp, frac)
+                fp_out = fp32.compose(sign, final_exp, frac)
             else:
                 lsb.set_bin(significant[23].bin)
                 rnd.set_bin(significant[22].bin)
@@ -317,7 +318,7 @@ class FloatInttoFP:
                 frac.set_bin((sig25[7:1] if (sig25[8] == ubit(1, '1')) else sig25[6:0]).bin)
                 final_exp.set_bin((new_exp + ubit(1, '1') if (sig25[8] == ubit(1, '1')) else new_exp).bin)
 
-                fp_out: bf16 = bf16.compose(sign, final_exp, frac)
+                fp_out = bf16.compose(sign, final_exp, frac)
         return fp_out
 
     def inttofp2(self):
@@ -455,7 +456,7 @@ class FloatBfloat16toFloat32:
         self.a: bf16 = a
         pass
 
-    def bf16_to_fp32(self) -> fp32[FloatBaseT]:
+    def bf16_to_fp32(self) -> fp32:
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
         mant_diff_bit = fp32_obj.mantissa_bits - bf16_obj.mantissa_bits # 16

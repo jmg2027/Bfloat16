@@ -6,6 +6,8 @@ from .floatclass import tfbfloat16
 from .floatclass import tffloat32
 from .floatclass import TfFloatT
 
+from .floatclass import TestInputT
+
 from .floatclass import FloatTypeError
 from .floatclass import FloatValueError
 
@@ -33,5 +35,5 @@ bit_zero = bit(1, '0')
 bit_one  = bit(1, '1')
 
 __all__ = ['bf16', 'fp32', 'bit', 'sbit', 'ubit', 'FloatBaseT', 'fp32_obj', 
-           'bf16_obj', 'bit_zero', 'bit_one', 'tfbfloat16', 'tffloat32', 'TfFloatT',
+           'bf16_obj', 'bit_zero', 'bit_one', 'tfbfloat16', 'tffloat32', 'TfFloatT', 'TestInputT',
            'FloatTypeError', 'FloatValueError']

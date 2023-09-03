@@ -4,23 +4,24 @@ from bf16 import *
 from abc import ABCMeta, abstractmethod
 
 from typing import Generic
+from typing_extensions import Self
 
 
 FloatTffloatT = TypeVar('FloatTffloatT', bf16, fp32, tfbfloat16, tffloat32)
 OpFuncT = Callable[[Tuple[FloatTffloatT, ...]], FloatTffloatT]
 
 
-class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
+class TestAbsClass(metaclass=ABCMeta):
     test_set: List
     ftype: Type[FloatBaseT]
     _INPUT_NUM: int
     
     @abstractmethod
-    def __init__(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
+    def __init__(self, ftype: Type, test_set: list, operation: str) -> None:
         pass
 
     @abstractmethod
-    def set(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
+    def set(self, ftype: Type, test_set: list, operation: str) -> None:
         pass
  
     @abstractmethod
@@ -28,11 +29,11 @@ class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_ftype(self, ftype: Type[FloatBaseT]) -> None:
+    def set_ftype(self, ftype: Type) -> None:
         pass
 
     @abstractmethod
-    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> None:
+    def _set_f_ops(self, ftype: Type) -> None:
         pass
 
     @abstractmethod
@@ -61,12 +62,12 @@ class TestAbsClass(Generic[FloatBaseT], metaclass=ABCMeta):
         pass
 
 
-class TestOperationBase(TestAbsClass[FloatBaseT]):
+class TestOperationBase(TestAbsClass):
     """
     Parent class for testing operations
     """
     test_set: List
-    ftype: Type[FloatBaseT]
+    ftype: Type[Self]
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
 
@@ -77,29 +78,29 @@ class TestOperationBase(TestAbsClass[FloatBaseT]):
         'summation': tf.reduce_sum,
     } # type: ignore
     
-    def __init__(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
+    def __init__(self, ftype: Type[Self], test_set: List, operation: str) -> None:
         self.set(ftype, test_set, operation)
 
-    def set(self, ftype: Type[FloatBaseT], test_set: list, operation: str) -> None:
+    def set(self, ftype: Type[Self], test_set: List, operation: str) -> None:
         self.test_set, self.ftype = self.set_test_set(test_set), self.set_ftype(ftype)
         self._f_ops: Dict[str, Union[OpFuncT, None]] = self._set_f_ops(ftype)
         self.operation = self._set_operation(self._f_ops, operation)
         self.tf_operation = self._set_operation(self._TF_OPS, operation) # type: ignore
         self.op: str = operation
  
-    def set_test_set(self, test_set: list) -> None:
+    def set_test_set(self, test_set: List) -> List:
         if self._check_test_set(test_set):
             return test_set
         else:
-            raise TypeError(f'{self.__name__} test_set structure should be:\n {self._TEST_SET_STRUCTURE}')
+            raise TypeError(f'{self.__class__.__name__} test_set structure should be:\n {self._TEST_SET_STRUCTURE}')
 
-    def set_ftype(self, ftype: Type[FloatBaseT]) -> Type[FloatBaseT]:
+    def set_ftype(self, ftype: Type[Self]) -> Type[Self]:
         if (ftype == fp32) | (ftype == bf16):
             return ftype
         else:
             raise TypeError('Ftype should be bf16 or fp32 class')
 
-    def _set_f_ops(self, ftype: Type[FloatBaseT]) -> Dict[str, Union[OpFuncT, None]]:
+    def _set_f_ops(self, ftype: Type[Self]) -> Dict[str, Union[OpFuncT, None]]:
         return \
         {
             'mul': getattr(ftype, '__mul__', None),

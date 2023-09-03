@@ -1,5 +1,8 @@
+from bf16 import *
 from test.utils import *
-from bf16 import bf16, fp32
+from test.test_class import TestOperationBase
+
+from typing_extensions import Self
 
 
 test_set = [
