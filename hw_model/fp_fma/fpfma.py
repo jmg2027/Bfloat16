@@ -1,18 +1,18 @@
-from bf16 import bf16, fp32, bit, sbit, ubit, FloatBaseT, fp32_obj, bf16_obj, bit_zero, bit_one, Type, Generic
-from hw_model import hwutil
+from ..utils.commonimport import *
 
-class FloatFMA:
+
+class FloatFMA(Generic[FloatBaseT]):
     # https://repositories.lib.utexas.edu/bitstream/handle/2152/13269/quinnelle60861.pdf?sequence=2
     # a * b + c
-    def __init__(self, a: 'bf16.Float32', b: 'bf16.Float32', c: 'bf16.Float32'):
+    def __init__(self, a: FloatBaseT, b: FloatBaseT, c: FloatBaseT) -> None:
         self.a = a
         self.b = b
         self.c = c
 
-    def fma(self):
+    def fma(self) -> FloatBaseT:
         # If input is Bfloat16, bf16_to_fp32
         # Make flag of bf16 input
-        bf16_input = isinstance(self.a, bf16.Bfloat16) & isinstance(self.b, bf16.Bfloat16) & isinstance(self.c, bf16.Bfloat16)
+        bf16_input = isinstance(self.a, bf16) & isinstance(self.b, bf16) & isinstance(self.c, bf16)
         if bf16_input:
             self.a = self.a.bf16_to_fp32()
             self.b = self.b.bf16_to_fp32()
@@ -21,14 +21,18 @@ class FloatFMA:
         a_sign, a_exp, a_mant_nohidden = self.a.decompose()
         b_sign, b_exp, b_mant_nohidden = self.b.decompose()
         c_sign, c_exp, c_mant_nohidden = self.c.decompose()
-        a_mant_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{a_mant_nohidden}')
-        b_mant_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{b_mant_nohidden}')
-        c_mant_us = bf16.ubit(bf16.Float32.mantissa_bits + 1, f'1{c_mant_nohidden}')
+        a_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{a_mant_nohidden}')
+        b_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{b_mant_nohidden}')
+        c_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{c_mant_nohidden}')
 
-        a_exp_signed = bf16.sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
-        b_exp_signed = bf16.sbit(b_exp.bitwidth + 2, f'0{b_exp.bin}')
-        c_exp_signed = bf16.sbit(c_exp.bitwidth + 2, f'0{c_exp.bin}')
-        bias_signed = bf16.sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+        a_exp_signed = sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
+        b_exp_signed = sbit(b_exp.bitwidth + 2, f'0{b_exp.bin}')
+        c_exp_signed = sbit(c_exp.bitwidth + 2, f'0{c_exp.bin}')
+        bias_signed = sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+
+        ret_sign_0 : bit = bit(1, '0')
+        ret_exp_0 : bit = bit(1, '0')
+        ret_mant_0: bit = bit(1, '0')
 
         # Special cases
         #input
@@ -36,29 +40,29 @@ class FloatFMA:
         # fma(nan,?,?) -> nan
         # nan inputs clearance
         if self.a.isnan() or self.b.isnan() or self.c.isnan():
-            ret_sign_0 = bf16.bit(1, '0')
-            ret_exp_0 = bf16.bit(bf16.Float32.exponent_bits, bin(bf16.Float32.exp_max + bf16.Float32.bias))
-            ret_mant_0 = bf16.bit(bf16.Float32.mantissa_bits, bin(bf16.Float32.mant_max))
+            ret_sign_0 = bit(1, '0')
+            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
+            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
         # (inf * 0) + ? -> nan
         elif (self.a.isinf() and self.b.iszero()) or (self.b.isinf() and self.a.iszero()):
-            ret_sign_0 = bf16.bit(1, '0')
-            ret_exp_0 = bf16.bit(bf16.Float32.exponent_bits, bin(bf16.Float32.exp_max + bf16.Float32.bias))
-            ret_mant_0 = bf16.bit(bf16.Float32.mantissa_bits, bin(bf16.Float32.mant_max))
+            ret_sign_0 = bit(1, '0')
+            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
+            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
         # (inf * ?) + -inf, (-inf * ?) + inf -> nan
         elif (self.a.isinf() or self.b.isinf()) and self.c.isinf() and (a_sign ^ b_sign ^ c_sign):
-            ret_sign_0 = bf16.bit(1, '0')
-            ret_exp_0 = bf16.bit(bf16.Float32.exponent_bits, bin(bf16.Float32.exp_max + bf16.Float32.bias))
-            ret_mant_0 = bf16.bit(bf16.Float32.mantissa_bits, bin(bf16.Float32.mant_max))
+            ret_sign_0 = bit(1, '0')
+            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
+            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
         # (inf * ?) + ? -> inf, (-inf * ?) + ? -> -inf
         elif (self.a.isinf() or self.b.isinf()):
             ret_sign_0 = a_sign ^ b_sign
-            ret_exp_0 = bf16.bit(bf16.Float32.exponent_bits, bin(bf16.Float32.exp_max + bf16.Float32.bias))
-            ret_mant_0 = bf16.bit(bf16.Float32.mantissa_bits, bf16.Float32.mantissa_bits * '0')
+            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
+            ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
         # (? * ?) + inf -> inf, (? * ?) - inf -> inf
         elif self.c.isinf():
             ret_sign_0 = c_sign
-            ret_exp_0 = bf16.bit(bf16.Float32.exponent_bits, bin(bf16.Float32.exp_max + bf16.Float32.bias))
-            ret_mant_0 = bf16.bit(bf16.Float32.mantissa_bits, bf16.Float32.mantissa_bits * '0')
+            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
+            ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
         # FIX: add zero adddend/product cases
         # Zero product case
         elif self.a.iszero() or self.b.iszero():
@@ -71,7 +75,7 @@ class FloatFMA:
 
         if isnormal:
             # Define precision bitwidth
-            precision_bit = bf16.Float32.mantissa_bits + 1
+            precision_bit = fp32_obj.mantissa_bits + 1
 
             # Zero addend case
             if self.c.iszero():
@@ -90,10 +94,10 @@ class FloatFMA:
             # Product is 1x.xxx...
             # Product exponent calculation and normalize
             # FIX: addend to 01.xxx_xxxx
-            if p_mant_us[2*precision_bit-1] == bf16.bit(1, '1'):
+            if p_mant_us[2*precision_bit-1] == ubit(1, '1'):
                 # 1x.xxx...
                 # exp + 1
-                p_exp_signed = a_exp_signed + b_exp_signed - bias_signed + bf16.sbit(2, '01')
+                p_exp_signed = a_exp_signed + b_exp_signed - bias_signed + sbit(2, '01')
             else:
                 # 0x.xxx...
                 # left shift mantissa
@@ -109,9 +113,9 @@ class FloatFMA:
 
             # Set flags
             #print('exp_diff', exp_diff)
-            c_exp_gt_p = exp_diff > bf16.sbit(1, '0')
-            c_exp_eq_p = exp_diff == bf16.sbit(1, '0')
-            c_mant_gt_p = (c_mant_us.concat(bf16.bit(precision_bit, '0'))) >= p_mant_us
+            c_exp_gt_p = exp_diff > sbit(1, '0')
+            c_exp_eq_p = exp_diff == sbit(1, '0')
+            c_mant_gt_p = (c_mant_us.concat(ubit(precision_bit, '0'))) >= p_mant_us
             #print(c_mant_us)
             #print('a_mant_us', hex(int(a_mant_us)))
             #print('b_mant_us', hex(int(b_mant_us)))
@@ -149,45 +153,45 @@ class FloatFMA:
             if addend_anchor_case:
                 # add will be just 1+p+3 bits
                 mant_sticky = p_mant_us.reduceor()
-                c_mant_shft = c_mant_us.concat(bf16.bit(2, '0'))
-                p_mant_shft = bf16.bit(precision_bit+2, '0').concat(mant_sticky)
-                if subtract_mant == bf16.bit(1, '1'):
+                c_mant_shft = c_mant_us.concat(ubit(2, '0'))
+                p_mant_shft = ubit(precision_bit+2, '0').concat(mant_sticky)
+                if subtract_mant == ubit(1, '1'):
                     p_mant_shft = -p_mant_shft
                 # match to 1+2p+3 bits
                 # FIX: add subtract cases: addend: 01.xxx....
                 # FIX: not need to "add"
-                sum = bf16.ubit.add_bitstring(c_mant_shft, p_mant_shft).concat(bf16.ubit(precision_bit, '0'))
+                sum = ubit.add_bitstring(c_mant_shft, p_mant_shft).concat(ubit(precision_bit, '0'))
             elif product_anchor_case:
                 # sum will be just 1+2p+3 bits
                 mant_sticky = p_mant_us.reduceor()
-                c_mant_shft = bf16.bit(2*precision_bit+2, '0').concat(mant_sticky)
-                p_mant_shft = p_mant_us.concat(bf16.bit(2, '0'))
-                if subtract_mant == bf16.bit(1, '1'):
+                c_mant_shft = ubit(2*precision_bit+2, '0').concat(mant_sticky)
+                p_mant_shft = p_mant_us.concat(bit(2, '0'))
+                if subtract_mant == ubit(1, '1'):
                     c_mant_shft = -c_mant_shft
-                sum = bf16.ubit.add_bitstring(c_mant_shft, p_mant_shft)
+                sum = ubit.add_bitstring(c_mant_shft, p_mant_shft)
             else:
                 mant_shift_amt = exp_diff_abs
                 # match to 2p+grs bits
                 # make sum mantissa to '0'01.xxx...
                 # FIX: make sum just 11bits (not now)
                 if c_exp_gt_p:
-                    mant_unshift = c_mant_us.concat(bf16.ubit(3 + precision_bit, '0'))
-                    mant_shift_in = p_mant_us.concat(bf16.ubit(3, '0'))
+                    mant_unshift = c_mant_us.concat(ubit(3 + precision_bit, '0'))
+                    mant_shift_in = p_mant_us.concat(ubit(3, '0'))
                 elif c_exp_eq_p:
                     if c_mant_gt_p:
                         # In case of equal exponent, shift lesser mantissa
-                        mant_unshift = c_mant_us.concat(bf16.ubit(3 + precision_bit, '0'))
-                        mant_shift_in = p_mant_us.concat(bf16.ubit(3, '0'))
+                        mant_unshift = c_mant_us.concat(ubit(3 + precision_bit, '0'))
+                        mant_shift_in = p_mant_us.concat(ubit(3, '0'))
                     else:
-                        mant_unshift = p_mant_us.concat(bf16.ubit(3, '0'))
-                        mant_shift_in = c_mant_us.concat(bf16.ubit(precision_bit + 3, '0'))
+                        mant_unshift = p_mant_us.concat(ubit(3, '0'))
+                        mant_shift_in = c_mant_us.concat(ubit(precision_bit + 3, '0'))
                 else:
-                    mant_unshift = p_mant_us.concat(bf16.ubit(3, '0'))
-                    mant_shift_in = c_mant_us.concat(bf16.ubit(precision_bit + 3, '0'))
+                    mant_unshift = p_mant_us.concat(ubit(3, '0'))
+                    mant_shift_in = c_mant_us.concat(ubit(precision_bit + 3, '0'))
                 mant_shift = mant_shift_in >> mant_shift_amt
 
                 # Invert mantissa
-                if subtract_mant == bf16.bit(1, '1'):
+                if subtract_mant == ubit(1, '1'):
                     mant_add_in_c = -mant_shift
                     mant_add_in_p = mant_unshift
                 else:
@@ -206,8 +210,8 @@ class FloatFMA:
                 # Add mantissa (Including sub)
                 # mant_add[1+2p+3:0] (Including carry)
                 # Not to discard carry
-                mant_add = bf16.ubit.add_bitstring(mant_add_in_c, mant_add_in_p)
-                sum = bf16.ubit(2 * precision_bit + 4, mant_add.bin)
+                mant_add = ubit.add_bitstring(mant_add_in_c, mant_add_in_p)
+                sum = ubit(2 * precision_bit + 4, mant_add.bin)
 
             ret_mant_0 = sum
             #print('fma_sum', repr(ret_mant_0))
@@ -230,12 +234,12 @@ class FloatFMA:
             # Exponent adjust with normalize/Add
             # Sum format: cx.xxx....xx (2p+4 bits)
             # Sub: in case of 00.0...0xx shift amount = lzc + 1
-            if subtract_mant == bf16.bit(1, '1'):
-                shift_amt = bf16.hwutil.leading_zero_count(ret_mant_0[ret_mant_0.bitwidth-2:0]) 
+            if subtract_mant == bit(1, '1'):
+                shift_amt = hwutil.leading_zero_count(ret_mant_0[ret_mant_0.bitwidth-2:0]) 
                 ret_mant_1 = ret_mant_0 << shift_amt
                 exp_adj = -shift_amt
             # Add, carry occured
-            elif ret_mant_0[ret_mant_0.bitwidth-1] == bf16.ubit(1, '1'):
+            elif ret_mant_0[ret_mant_0.bitwidth-1] == ubit(1, '1'):
                 shift_amt = 1
                 exp_adj = shift_amt
                 ret_mant_1 = ret_mant_0 >> shift_amt
@@ -243,36 +247,36 @@ class FloatFMA:
             else:
                 exp_adj = 0
                 ret_mant_1 = ret_mant_0
-            ret_exp_1 = ret_exp_0 + bf16.sbit(ret_exp_0.bitwidth + 2, bin(exp_adj))
+            ret_exp_1 = ret_exp_0 + sbit(ret_exp_0.bitwidth + 2, bin(exp_adj))
 
             # adjusted exponent: remove mantissa carry
             ret_mant_2 = ret_mant_1[ret_mant_0.bitwidth-2:0]
 
             # Round and Postnormalization
             # Postnormalize: when mant = 1.111_1111_R (R = 1)
-            postnorm_mant = ret_mant_2[ret_mant_2.bitwidth-1:ret_mant_2.bitwidth-bf16.Float32.mantissa_bits-2]
-            postnorm_cond = bf16.ubit(bf16.Float32.mantissa_bits + 2, '1' * (bf16.Float32.mantissa_bits + 2))
+            postnorm_mant = ret_mant_2[ret_mant_2.bitwidth-1:ret_mant_2.bitwidth-fp32_obj.mantissa_bits-2]
+            postnorm_cond = ubit(fp32_obj.mantissa_bits + 2, '1' * (fp32_obj.mantissa_bits + 2))
             if postnorm_mant == postnorm_cond:
-                ret_exp_2 = ret_exp_1 + bf16.sbit(ret_exp_0.bitwidth + 2, '01')
-                ret_mant_3 = bf16.ubit(bf16.Float32.mantissa_bits + 1, '0')
+                ret_exp_2 = ret_exp_1 + sbit(ret_exp_0.bitwidth + 2, '01')
+                ret_mant_3 = ubit(fp32_obj.mantissa_bits + 1, '0')
             else:
                 # round
                 ret_exp_2 = ret_exp_1
-                ret_mant_3 = bf16.hwutil.round_to_nearest_even_bit(ret_mant_2, bf16.Float32.mantissa_bits + 1)
+                ret_mant_3 = hwutil.round_to_nearest_even_bit(ret_mant_2, fp32_obj.mantissa_bits + 1)
             
             # Overflow case: make inf
             # ret_exp_2: 01_0000_0000 ~
-            if ret_exp_2[bf16.Float32.exponent_bits + 1:0] >= bf16.sbit(bf16.Float32.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_2 = bf16.sbit(bf16.Float32.exponent_bits, bin((bf16.Float32.exp_max + bf16.Float32.bias)))
-                ret_mant_3 = bf16.ubit(bf16.Float32.mantissa_bits, '0')
+            if ret_exp_2[fp32_obj.exponent_bits + 1:0] >= sbit(fp32_obj.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
+                ret_exp_2 = sbit(fp32_obj.exponent_bits, bin((fp32_obj.exp_max + fp32_obj.bias)))
+                ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
             # Underflow case: make zero
             # ret_exp_2: 11_0000_0000 ~
-            elif ret_exp_2[bf16.Float32.exponent_bits + 1:0] <= bf16.sbit(bf16.Float32.exponent_bits + 1, bin(0)):
-                ret_exp_2 = bf16.sbit(bf16.Float32.exponent_bits, '0')
-                ret_mant_3 = bf16.ubit(bf16.Float32.mantissa_bits, '0')
+            elif ret_exp_2[fp32_obj.exponent_bits + 1:0] <= sbit(fp32_obj.exponent_bits + 1, bin(0)):
+                ret_exp_2 = sbit(fp32_obj.exponent_bits, '0')
+                ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
 
             # remove hidden bit
-            ret_mant_4 = ret_mant_3[bf16.Float32.mantissa_bits - 1:0]
+            ret_mant_4 = ret_mant_3[fp32_obj.mantissa_bits - 1:0]
 
             ret_sign = ret_sign_0
             ret_exp_signed = ret_exp_2
@@ -304,10 +308,10 @@ class FloatFMA:
             ret_mant = ret_mant_0
 
         # Remove sign bit from exponent
-        ret_exp = bf16.bit(bf16.Float32.exponent_bits, ret_exp_signed.bin)
+        ret_exp = bit(fp32_obj.exponent_bits, ret_exp_signed.bin)
 
         # Compose BF16
-        fma = bf16.Float32.compose(ret_sign, ret_exp, ret_mant)
+        fma = fp32.compose(ret_sign, ret_exp, ret_mant)
         # If input is Bfloat16, fp32_to_bf16
         if bf16_input:
             fma = fma.fp32_to_bf16()

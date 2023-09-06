@@ -1,10 +1,7 @@
 from test.utils import *
-from bf16 import *
+from .commonimport import *
 
 from abc import ABCMeta, abstractmethod
-
-from typing import Generic
-from typing_extensions import Self
 
 
 FloatTffloatT = TypeVar('FloatTffloatT', bf16, fp32, tfbfloat16, tffloat32)

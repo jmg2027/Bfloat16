@@ -1,10 +1,8 @@
-from bf16 import *
-from typing import Type, Generic
-from .. import hwutil
+from ..utils.commonimport import *
 
 
 class FloatAddition(Generic[FloatBaseT]):
-    def __init__(self, a: FloatBaseT, b: FloatBaseT):
+    def __init__(self, a: FloatBaseT, b: FloatBaseT) -> None:
         self.a = a
         self.b = b
 

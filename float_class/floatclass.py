@@ -7,29 +7,30 @@ from abc import ABCMeta, abstractmethod, abstractclassmethod
 from typing import Tuple, Optional, ClassVar, Union, TypeVar, Type, Generic, List
 from typing_extensions import Self, TypeAlias
 
-from bf16 import utils as util
+from float_class import utils as util
 
 from .bitstring import BitString as bit
 from .bitstring import SignedBitString as sbit
 from .bitstring import UnsignedBitString as ubit
 
-FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
-TfFloatT = TypeVar('TfFloatT', tfbfloat16, tffloat32)
-TestInputT: TypeAlias = Union[int, float, 'Bfloat16', 'Float32']
+#FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+#TfFloatT = TypeVar('TfFloatT', tfbfloat16, tffloat32)
+#TestInputT: TypeAlias = Union[int, float, 'Bfloat16', 'Float32']
 
-from hw_model import (
-    Pow,
-    Neg,
-    FPtoInt,
-    InttoFP,
-    BF16toFP32,
-    FP32toBF16,
-    Mul,
-    Add,
-    Fma,
-    Summation,
-    MRU,
-)
+#from hw_model import (
+#    Pow,
+#    Neg,
+#    FPtoInt,
+#    InttoFP,
+#    BF16toFP32,
+#    FP32toBF16,
+#    Mul,
+#    Add,
+#    Fma,
+#    Summation,
+#    MRU,
+#)
+from hw_model import *
 
 
 class FloatBase(metaclass=ABCMeta):
@@ -39,9 +40,6 @@ class FloatBase(metaclass=ABCMeta):
     _sign_bitpos: int = 64
     _exponent_bits: int = 11
     _mantissa_bits: int = 52
-    _bias: int = (1 << (_exponent_bits - 1)) - 1
-    _exp_max: int = (1 << (_exponent_bits - 1))
-    _mant_max: int = (1 << _mantissa_bits) - 1
 
     @property
     def sign_bitpos(self) -> int:
@@ -57,18 +55,36 @@ class FloatBase(metaclass=ABCMeta):
 
     @property
     def bias(self) -> int:
-        return self._bias
+        return (1 << (self._exponent_bits - 1)) - 1
 
     @property
     def exp_max(self) -> int:
-        return self._exp_max
+        return (1 << (self._exponent_bits - 1))
 
     @property
     def mant_max(self) -> int:
-        return self._mant_max
+        return (1 << self._mantissa_bits) - 1
 
-    def __init__(self, sign: int, exponent: int, mantissa: int) -> None:
+    @classmethod
+    def _bias(cls) -> int:
+        return (1 << (cls._exponent_bits - 1)) - 1
+
+    @classmethod
+    def _exp_max(cls) -> int:
+        return (1 << (cls._exponent_bits - 1))
+
+    @classmethod
+    def _mant_max(cls) -> int:
+        return (1 << cls._mantissa_bits) - 1
+
+    def __init__(self, sign: int, exponent: int, mantissa: int,     
+                _sign_bitpos: int = 64, 
+                _exponent_bits: int = 11, 
+                _mantissa_bits: int = 52) -> None:
         # call setter in __init__
+        self._sign_bitpos = _sign_bitpos
+        self._exponent_bits = _exponent_bits
+        self._mantissa_bits = _mantissa_bits
         self.set(sign, exponent, mantissa)
 
     def set(self, sign: int, exponent: int, mantissa: int) -> None:
@@ -82,12 +98,12 @@ class FloatBase(metaclass=ABCMeta):
         return sign
 
     def set_exponent(self, exponent: int) -> int:
-        if not 0 - self.bias <= exponent <= self._exp_max:
-            raise FloatValueError(f"{self.__class__.__name__} exponent value must be in range of {-self._bias} ~ {self.exp_max}")
+        if not 0 - self.bias <= exponent <= self.exp_max:
+            raise FloatValueError(f"{self.__class__.__name__} exponent value must be in range of {-self._bias()} ~ {self.exp_max}")
         return exponent
 
     def set_mantissa(self, mantissa: int) -> int:
-        if not 0 <= mantissa <= self._mant_max:
+        if not 0 <= mantissa <= self.mant_max:
             raise FloatValueError(f"{self.__class__.__name__} mantissa value must be in range of 0 ~ {self.mant_max}")
         return mantissa
     
@@ -144,12 +160,12 @@ class FloatBase(metaclass=ABCMeta):
         From hardware output
         """
         sign, biased_exponent, mantissa = tuple(map(lambda x: int(x), (sign_bin, exponent_bin, mantissa_bin)))
-        exponent = biased_exponent - cls._bias
+        exponent = biased_exponent - cls._bias()
         return cls(sign, exponent, mantissa)
 
     @classmethod
     def from_float(cls, fp: float) -> Self:
-        bf16_bias = cls._bias
+        bf16_bias = cls._bias()
         bf16_sign, bf16_exp_before_bias, fp32_mant = util.decomp_fp32(float(fp))
         bf16_exp, bf16_mant = util.round_and_postnormalize(bf16_exp_before_bias, fp32_mant, 23, 7)
         bf16_exp = bf16_exp - bf16_bias
@@ -161,8 +177,8 @@ class FloatBase(metaclass=ABCMeta):
         exp_bit_msb = cls._sign_bitpos - 1
         exp_bit_lsb = cls._sign_bitpos - 1 - cls._exponent_bits
         exp_mask = ((1 << exp_bit_msb) - 1) - ((1 << exp_bit_lsb) -1)
-        exponent = ((h & exp_mask) >> (cls._sign_bitpos - 1 - cls._exponent_bits)) - cls._bias
-        mant_mask = cls._mant_max
+        exponent = ((h & exp_mask) >> (cls._sign_bitpos - 1 - cls._exponent_bits)) - cls._bias()
+        mant_mask = cls._mant_max()
         mantissa = h & mant_mask
         return cls(sign, exponent, mantissa)
     
@@ -320,7 +336,7 @@ class Bfloat16(FloatBase):
     _mantissa_bits = 7
 
     def __init__(self, sign: int, exponent: int, mantissa: int) -> None:
-        super().__init__(sign, exponent, mantissa)
+        super().__init__(sign, exponent, mantissa, self._sign_bitpos, self._exponent_bits, self._mantissa_bits)
     
     @classmethod
     def inttofp(cls, i: int) -> Self:

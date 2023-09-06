@@ -1,10 +1,10 @@
-from bf16 import *
+from ..utils.commonimport import *
+
 from typing import Union, Generic, Literal, TypeVar
-from typing_extensions import TypeAlias
 from math import log2
 
+FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
 
-#class FloatPowerofTwo(Generic[FloatBaseT]):
 class FloatPowerofTwo(Generic[FloatBaseT]):
     
     """
@@ -452,11 +452,11 @@ class FloatInttoFP(Generic[FloatBaseT]):
 
 
 class FloatBfloat16toFloat32:
-    def __init__(self, a: bf16) -> None:
+    def __init__(self, a: 'bf16') -> None:
         self.a: bf16 = a
         pass
 
-    def bf16_to_fp32(self) -> fp32:
+    def bf16_to_fp32(self) -> 'fp32':
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
         mant_diff_bit = fp32_obj.mantissa_bits - bf16_obj.mantissa_bits # 16
@@ -469,11 +469,11 @@ class FloatBfloat16toFloat32:
 
 
 class FloatFloat32toBfloat16:
-    def __init__(self, a: fp32) -> None:
+    def __init__(self, a: 'fp32') -> None:
         self.a = a
         pass
 
-    def fp32_to_bf16(self) -> bf16:
+    def fp32_to_bf16(self) -> 'bf16':
         # Decompose Float32 to BitString
         a_sign, a_exp, a_mant = self.a.decompose()
         mant_diff_bit = fp32_obj.mantissa_bits - bf16_obj.mantissa_bits

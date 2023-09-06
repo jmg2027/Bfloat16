@@ -1,4 +1,4 @@
-from bf16 import *
+from .commonimport import *
 from test.utils import *
 from test.test_class import TestOperationBase
 
@@ -44,9 +44,9 @@ test_set = [
         (-4, 2),
         (2, -4),
     # When two add of mantissa is 1111_1111_1110
-        (float(bf16(0, 0, bf16.mant_max)), float(bf16(0, 0, bf16.mant_max))),
+        (float(bf16(0, 0, bf16_obj.mant_max)), float(bf16(0, 0, bf16_obj.mant_max))),
     # When two add of mantissa is 0111_1111_1111
-        (float(bf16(0, 8, bf16.mant_max)), float(bf16(0, 0, bf16.mant_max)))
+        (float(bf16(0, 8, bf16_obj.mant_max)), float(bf16(0, 0, bf16_obj.mant_max)))
 ]
 
 # FIX: Need to handle proper test method for bf16/fp32

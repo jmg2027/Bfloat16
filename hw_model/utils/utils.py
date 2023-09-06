@@ -1,8 +1,7 @@
 from typing import List, TypeVar, Union
-from bf16 import *
+from .commonimport import *
 
-
-BitT = TypeVar('BitT', bound=bit)
+BitT = TypeVar('BitT', bound='bit')
 '''
 def radix_4_booth_encoder(bin: str) -> List:
     """
@@ -68,7 +67,7 @@ def round_to_nearest_even_bit(bit: BitT, round_width: int) -> BitT:
     #print('sticky', sticky_bit)
     return rounded_bit
 
-def leading_zero_count(bit: Union[bit, sbit, ubit]) -> int:
+def leading_zero_count(bit: Union['bit', 'sbit', 'ubit']) -> int:
     # If there's no 1 in bit, return zero indicator: 256
     if '1' not in bit.bin:
         return (1 << bf16_obj.exponent_bits)

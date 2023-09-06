@@ -1,20 +1,17 @@
 import tensorflow as tf
 import random
+from jaxtyping import BFloat16 as tfbfloat16
+from jaxtyping import Float32 as tffloat32
 
-from typing import (
-    Union,
-    Type,
-    TypeVar,
-    List,
-    Tuple,
-    Dict,
-    Callable,
-    Any,
-    Optional,
-    )
+from .commonimport import *
 
-from bf16 import bf16, fp32, FloatBaseT
-from bf16.utils import bf16_ulp_dist
+from float_class.utils import bf16_ulp_dist
+from typing import Generic, TypeVar
+
+FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+
+FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+TestInputT = Union[int, float, bf16, fp32]
 
 def conv_from_float(f: float, ftype: Type[FloatBaseT]) -> FloatBaseT:
     return ftype.from_float(f)
@@ -25,7 +22,7 @@ def convert_to_bf16(num: float) -> bf16:
 def convert_to_fp32(num: float) -> fp32:
     return fp32.from_float(num)
 
-def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32): # type: ignore
+def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32) -> Union[tfbfloat16, tffloat32]:
     '''
     num: float, ftype: Type[FloatBaseT] -> tf.bfloat16, tf.float32
     '''
@@ -36,19 +33,19 @@ def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32): # type: ignore
     else:
         raise TypeError("Use this function only for Bfloat16 and Float32 type")
 
-def convert_to_tfbf16(num: float) -> tf.bfloat16: # type: ignore
+def convert_to_tfbf16(num: float) -> tfbfloat16:
     return tf.cast(float(num), tf.bfloat16)
 
-def convert_to_tffp32(num: float) -> tf.float32: # type: ignore
+def convert_to_tffp32(num: float) -> tffloat32:
     return tf.cast(float(num), tf.float32)
 
-def convert_tfbf16_to_int(num: tf.bfloat16) -> int: # type: ignore
+def convert_tfbf16_to_int(num: tfbfloat16) -> int:
     return int(num)
 
-def convert_int_to_tfbf16(num: int) -> tf.bfloat16: # type: ignore
+def convert_int_to_tfbf16(num: int) -> tfbfloat16:
     return tf.cast(num, tf.bfloat16)
 
-def cast_float(frepr: Union[int, float, bf16, fp32], \
+def cast_float(frepr: TestInputT, \
                 ftype: Type[FloatBaseT] = fp32) \
                 -> FloatBaseT:
     # use float representation for integer inputs
@@ -79,7 +76,7 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
     if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
         return True
-    bf16_ulp_error = bf16_ulp_dist(res1, res2)
+    bf16_ulp_error = bf16_ulp_dist(float(res1), float(res2))
     # ulp error under 2
     #if float(res1) == float(res2):
     if bf16_ulp_error <= 2:
@@ -88,21 +85,21 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
         return False
 
 def random_bf16() -> bf16:
-    min_exp = - bf16.exp_max + 1
-    max_exp = bf16.exp_max
+    min_exp = - bf16_obj.exp_max + 1
+    max_exp = bf16_obj.exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = bf16.mant_max
+    max_mant = bf16_obj.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
 def random_fp32() -> fp32:
-    min_exp = - fp32.exp_max + 1
-    max_exp = fp32.exp_max
+    min_exp = - fp32_obj.exp_max + 1
+    max_exp = fp32_obj.exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = fp32.mant_max
+    max_mant = fp32_obj.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return fp32(rand_sign, rand_exp, rand_mant)
@@ -112,7 +109,7 @@ def random_bf16_range(exp_min: int = -10, exp_max: int = 10) -> bf16:
     max_exp = exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = bf16.mant_max
+    max_mant = bf16_obj.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)

@@ -1,4 +1,4 @@
-from bf16 import *
+from .commonimport import *
 from test.utils import *
 from test.test_class import TestOperationBase
 

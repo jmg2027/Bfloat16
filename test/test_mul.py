@@ -1,6 +1,6 @@
-from bf16 import *
+from .commonimport import *
 from test.utils import *
-from test.test_class import TestOperationBase
+from test.test_class import *
 
 from typing_extensions import Self
 
@@ -34,11 +34,11 @@ class TestMul(TestOperationBase):
     _INPUT_NUM = 2
     _TEST_SET_STRUCTURE = '[(num1, num2), (num3, num4), ...]'
 
-    def __init__(self, ftype: Type[FloatBaseT] = fp32, test_set = test_set):
+    def __init__(self, ftype: Type[FloatBaseT] = fp32, test_set = test_set) -> None:
         super().__init__(ftype, test_set, 'mul')
 
     # this method should be defined in subclasses
-    def _check_test_set(self, test_set: list):
+    def _check_test_set(self, test_set: list) -> bool:
         res = True
         # check structure
         if not isinstance(test_set, list):

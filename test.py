@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+from float_class import *
+
 import test
 import test.utils
 
@@ -16,7 +18,8 @@ from typing import (
     Optional
     )
 
-from bf16 import *
+
+from test.utils import FloatBaseT
 
 
 # make test as new class and define each operations with it
