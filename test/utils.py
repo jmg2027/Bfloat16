@@ -3,10 +3,10 @@ import random
 from jaxtyping import BFloat16 as tfbfloat16
 from jaxtyping import Float32 as tffloat32
 
-from .commonimport import *
+from .commonimport import bf16, fp32, bf16_obj, fp32_obj
 
-from float_class.utils import bf16_ulp_dist
-from typing import Generic, TypeVar
+from float_class.utils import bf16_ulp_dist, fp32_ulp_dist
+from typing import Generic, TypeVar, Union, Type
 
 FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
 
@@ -76,10 +76,14 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
     if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
         return True
-    bf16_ulp_error = bf16_ulp_dist(float(res1), float(res2))
+    if isinstance(res1, bf16):
+        ulp_error = bf16_ulp_dist((res1), float(res2))
+    elif isinstance(res1, fp32):
+        ulp_error = fp32_ulp_dist((res1), float(res2))
+    else:
+        raise TypeError(f"Input type should be bf16 or fp32. Current input: {type(res1)}")
     # ulp error under 2
-    #if float(res1) == float(res2):
-    if bf16_ulp_error <= 2:
+    if ulp_error <= 2:
         return True
     else:
         return False

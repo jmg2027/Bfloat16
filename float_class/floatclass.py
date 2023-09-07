@@ -13,24 +13,9 @@ from .bitstring import BitString as bit
 from .bitstring import SignedBitString as sbit
 from .bitstring import UnsignedBitString as ubit
 
-#FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
-#TfFloatT = TypeVar('TfFloatT', tfbfloat16, tffloat32)
-#TestInputT: TypeAlias = Union[int, float, 'Bfloat16', 'Float32']
-
-#from hw_model import (
-#    Pow,
-#    Neg,
-#    FPtoInt,
-#    InttoFP,
-#    BF16toFP32,
-#    FP32toBF16,
-#    Mul,
-#    Add,
-#    Fma,
-#    Summation,
-#    MRU,
-#)
-from hw_model import *
+#from float_class.hw_model import Add, Mul, Fma, Neg, FPtoInt, InttoFP, Pow, Summation, BF16toFP32, FP32toBF16
+#from float_class.hw_model.fp_mul.fpmul import FloatMultiplication as Mul
+import float_class.hw_model as hw_model
 
 
 class FloatBase(metaclass=ABCMeta):
@@ -188,7 +173,7 @@ class FloatBase(metaclass=ABCMeta):
             raise FloatTypeError("Both operands should be FloatBase objects.")
         if type(self) is not type(other):
             raise FloatTypeError("Both operands should be of the same type.")
-        addition = Add(self, other)
+        addition = hw_model.Add(self, other)
         return addition.add()
 
     def __mul__(self, other: Self) -> Self:
@@ -196,7 +181,7 @@ class FloatBase(metaclass=ABCMeta):
             raise FloatTypeError("Both operands should be FloatBase objects.")
         if type(self) is not type(other):
             raise FloatTypeError("Both operands should be of the same type.")
-        multiplication = Mul(self, other)
+        multiplication = hw_model.Mul(self, other)
         return multiplication.multiply()
 
     @classmethod
@@ -205,7 +190,7 @@ class FloatBase(metaclass=ABCMeta):
             raise FloatTypeError("Three of operands should be FloatBase objects.")
         if not (type(a) == type(b) == type(c)):
             raise FloatTypeError("Three of operands should be of the same type.")
-        fma = Fma(a, b, c)
+        fma = hw_model.Fma(a, b, c)
         return fma.fma()
     
     '''
@@ -241,7 +226,7 @@ class FloatBase(metaclass=ABCMeta):
             fp32_vector_list = [[v for v in vl] for vl in vector_list]
         else:
             raise FloatTypeError('Summation should be for FloatBase')
-        summation = Summation(fp32_vector_list)
+        summation = hw_model.Summation(fp32_vector_list)
         summation.set_acc(cls(0, -127, 0))
         for v in summation.vector_list:
             summation.set_vector(v)
@@ -260,7 +245,7 @@ class FloatBase(metaclass=ABCMeta):
     def fptoint(self) -> int:
         # HW component
         # Exists in fpmiscop
-        fptoint_obj = FPtoInt(self)
+        fptoint_obj = hw_model.FPtoInt(self)
         return fptoint_obj.fptoint()
     
     @classmethod
@@ -270,11 +255,11 @@ class FloatBase(metaclass=ABCMeta):
     def pow(self, n: int) -> Self:
         if not isinstance(n, int):
             raise FloatTypeError("Operand of power of 2 should be integer number.")
-        pow = Pow(self, n)
+        pow = hw_model.Pow(self, n)
         return pow.power()
     
     def __neg__(self) -> 'FloatBase':
-        neg = Neg(self)
+        neg = hw_model.Neg(self)
         return neg.negative()
 
     @abstractmethod
@@ -345,7 +330,7 @@ class Bfloat16(FloatBase):
         # Assuming 32-bit integer
         if (len(bin(i))-2) > 32:
             raise FloatTypeError("FloatBase inttofp accepts only 32-bit integer")
-        inttofp_obj = InttoFP[Bfloat16](i, 0)
+        inttofp_obj = hw_model.InttoFP[Bfloat16](i, 0)
         return inttofp_obj.inttofp()
     
     def to_float(self) -> float:
@@ -360,7 +345,7 @@ class Bfloat16(FloatBase):
         """
         FIX: Bfloat16 -> Float32
         """
-        bf16tofp32 = BF16toFP32(self)
+        bf16tofp32 = hw_model.BF16toFP32(self)
         return bf16tofp32.bf16_to_fp32()
     
 
@@ -387,7 +372,7 @@ class Float32(FloatBase):
     _mantissa_bits = 23
 
     def __init__(self, sign: int, exponent: int, mantissa: int) -> None:
-        super().__init__(sign, exponent, mantissa)
+        super().__init__(sign, exponent, mantissa, self._sign_bitpos, self._exponent_bits, self._mantissa_bits)
     
     @classmethod
     def inttofp(cls, i: int) -> Self:
@@ -396,7 +381,7 @@ class Float32(FloatBase):
         # Assuming 32-bit integer
         if (len(bin(i))-2) > 32:
             raise FloatTypeError("FloatBase inttofp accepts only 32-bit integer")
-        inttofp_obj = InttoFP[Float32](i, 1)
+        inttofp_obj = hw_model.InttoFP[Float32](i, 1)
         return inttofp_obj.inttofp()
     
     def to_float(self) -> float:
@@ -411,7 +396,7 @@ class Float32(FloatBase):
         """
         FIX: Float32 to Bfloat16
         """
-        fp32tobf16 = FP32toBF16(self)
+        fp32tobf16 = hw_model.FP32toBF16(self)
         return fp32tobf16.fp32_to_bf16()
 
     # from_blahblah method

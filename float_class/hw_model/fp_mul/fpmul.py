@@ -1,13 +1,23 @@
-from ..utils.commonimport import *
+#from ..utils.commonimport import *
+import float_class as fc
+#from float_class import *
+from typing import Generic, TypeVar
+from ..utils import utils as hwutil
 
-a = bf16(1, 1, 1)
+FloatBaseT = TypeVar('FloatBaseT', bound='fc.FloatBase')
+
+
+
 
 class FloatMultiplication(Generic[FloatBaseT]):
+    
     def __init__(self, a: FloatBaseT, b: FloatBaseT) -> None:
+        from ..utils.commonimport import bf16, fp32, bit, sbit, ubit, fp32_obj, bf16_obj
         self.a = a
         self.b = b
 
     def multiply(self):
+        fp32_obj = fc.fp32_obj
         # If input is Bfloat16, bf16_to_fp32
         # Make flag of bf16 input
         bf16_input = isinstance(self.a, bf16) & isinstance(self.b, bf16)
