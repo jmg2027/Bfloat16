@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from float_class import *
+from float_class import bf16, fp32
 
 import test
 import test.utils
@@ -42,8 +42,9 @@ def test_mul(ftype: Type[FloatBaseT] = fp32):
     t = test.test_mul.TestMul(ftype)
     t.test()
 
-def test_add():
-    test.test_add.test()
+def test_add(ftype: Type[FloatBaseT] = fp32):
+    t = test.test_add.TestAdd(ftype)
+    t.test()
 
 def test_fma():
     test.test_fma.test()
@@ -102,10 +103,14 @@ def test_random_all(times):
 
 
 if __name__ == "__main__":
-    test_mul(fp32)
+#    test_mul(fp32)
 #    test_mul(bf16)
-#    test_add()
-#    test_fma()
+#    test_add(fp32)
+#    test_add(bf16)
+#    test_fma(mod_0)
+#    test_fma(mod_1)
+#    test_fma(mod_2)
+#    test_summation()
 #    test_summation()
 #    test_fptoint()
 #    test_inttofp()

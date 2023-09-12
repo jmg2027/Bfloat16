@@ -127,9 +127,9 @@ class TestOperationBase(TestAbsClass):
     def test_body(self, input: Tuple[Union[int, float, bf16, fp32], ...]) -> Tuple:
         # input: hex(int), float, bf16, fp32
         operand = tuple(map(cast_float, input, [self.ftype]*self._INPUT_NUM))
+        #print(input)
         res = self.operation(*operand)
-        print(input)
-        print(res)
+        #print(res)
 
         tf_operand = tuple(map(conv_to_tf_dtype, input, [self.ftype]*self._INPUT_NUM))
         tfres = self.tf_operation(*tf_operand)

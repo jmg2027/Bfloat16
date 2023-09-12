@@ -40,12 +40,12 @@ class BitString:
 
     def set_bitwidth(self, bitwidth: int) -> None:
         if not (isinstance(bitwidth, int) & (bitwidth > 0)):
-            raise BitStrTypeError("INVALID_BITWIDTH")
-        self.set(bitwidth, self.value)
+            raise BitStrTypeError("INVALID_BITWIDTH", (self, bitwidth))
+        self.set(bitwidth, self.value) # type: ignore
     
     def set_bin(self, value: str) -> None:
         if not isinstance(value, str):
-            raise BitStrTypeError("INVALID_VALUE")
+            raise BitStrTypeError("INVALID_VALUE", (self, value))
         self.set(self.bitwidth, value)
 
     def set(self, bitwidth: int, value: str) -> None:
@@ -72,7 +72,7 @@ class BitString:
                 value = self._padding(bitwidth, value, '0')
             
         if not all(p in '01' for p in value):
-            raise BitStrValueError('INVALID_BIT')
+            raise BitStrValueError('INVALID_BIT', value)
         
         self.bin: str = value
         self.bitwidth: int = bitwidth
@@ -107,15 +107,15 @@ class BitString:
             return_bitstring = self.bin[verilog_index: verilog_index + 1]
             return self.__class__(1, return_bitstring)
         else:
-            raise BitStrTypeError('INVALID_INDEX')
+            raise BitStrTypeError('INVALID_INDEX', (self, index))
 
     def __setitem__(self, index: int, value: str) -> None:
         if isinstance(index, int):
             if value not in '01':
-                raise BitStrValueError('INVALID_BIT')
+                raise BitStrValueError('INVALID_BIT', value)
             self.bin = self.bin[:index] + value + self.bin[index + 1]
         else:
-            raise BitStrTypeError('INVALID_INDEX')
+            raise BitStrTypeError('INVALID_INDEX', (self, index))
 
     # Operations
     def _sign_extend(self, new_width: int, value: str) -> str:
@@ -205,9 +205,9 @@ class BitString:
     # Concatenation
     def concat(self, other: Self) -> Self:
         if not isinstance(other, BitString):
-            raise BitStrTypeError('TWO_BITSTRING')
+            raise BitStrTypeError('TWO_BITSTRING', (self, other))
         if not (type(self) == type(other)):
-            raise BitStrTypeError('SAME_CLASS')
+            raise BitStrTypeError('SAME_CLASS', (self, other))
         return self.__class__(len(f'{self.bin}{other.bin}'), f'{self.bin}{other.bin}')
 
     # Unary operators
@@ -249,14 +249,13 @@ class BitString:
 
     def _check_two_bitstring(self, other: Self) -> None:
         if not isinstance(other, BitString):
-            raise BitStrTypeError('TWO_BITSTRING')
+            raise BitStrTypeError('TWO_BITSTRING', (self, other))
         pass
     
     def _check_same_class(self, other: Self) -> None:
         if not (type(self) == type(other)):
-            raise BitStrTypeError('SAME_CLASS')
+            raise BitStrTypeError('SAME_CLASS', (self, other))
         pass
-
 
     # Bitwise
     def __and__(self, other: Self) -> Self:
@@ -294,6 +293,7 @@ class BitString:
     def __ne__(self, other: Self) -> bool:
         self._check_cond_operation(other)
         return int(self) != int(other)
+        #return self.__class__(1, bin(int(self) != int(other)))
 
     def __ge__(self, other: Self) -> bool:
         self._check_cond_operation(other)
@@ -435,12 +435,12 @@ class BitStrTypeError(Exception):
         'INVALID_VALUE': 'Bitstring value should be a string.',
         'INVALID_INDEX': 'Invalid index type for BitString.',
     }
-    def __init__(self, error_type: str) -> None:
+    def __init__(self, error_type: str, value = None) -> None:
         if error_type in self.ERRORS:
-            super().__init__(self.ERRORS[error_type])
+            self.message = f'{self.ERRORS[error_type]}. Got: {value}'
         else:
-            #super().__init__('An unknown error occurred.')
-            super().__init__(error_type)
+            self.message = f'{error_type}. Got: {value}'
+        super().__init__(self.message)
 
 
 class BitStrValueError(Exception):
@@ -449,9 +449,9 @@ class BitStrValueError(Exception):
         'INVALID_BIT': 'Bitstring should contain 0 and 1 only.',
     }
 
-    def __init__(self, error_type: str) -> None:
+    def __init__(self, error_type: str, value = None) -> None:
         if error_type in self.ERRORS:
-            super().__init__(self.ERRORS[error_type])
+            self.message = f'{self.ERRORS[error_type]}. Got: {value}'
         else:
-            #super().__init__('An unknown error occurred.')
-            super().__init__(error_type)
+            self.message = f'{error_type}. Got: {value}'
+        super().__init__(self.message)

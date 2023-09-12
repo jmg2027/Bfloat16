@@ -1,15 +1,17 @@
 #from bf16 import bf16, fp32, FloatBase, bit, sbit, ubit, fp32_obj
 #from float_class import * # why circular import is not a problem here?
-import float_class as fc
-from typing import Generic, TypeVar
+#import importlib
+from float_class.floatint import FloatBaseInt as fpint
+from float_class.floatint import bf16_config, fp32_config
+from float_class.bitstring import BitString as bit
+from float_class.bitstring import SignedBitString as sbit
+from float_class.bitstring import UnsignedBitString as ubit
+from typing import Generic, TypeVar, Tuple
 from ..utils import utils as hwutil
+from ..utils.utils import isnan, isinf, iszero
 
-bf16 = fc.bf16
-fp32 = fc.fp32
-bit = fc.bit
-sbit = fc.sbit
-ubit = fc.ubit
-fp32_obj = fc.fp32_obj
-bf16_obj = fc.bf16_obj
+#FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+FloatBaseT = TypeVar('FloatBaseT')
 
-FloatBaseT = TypeVar('FloatBaseT', bound='float_class.FloatBase')
+#
+FPBitT = Tuple[bit, bit, bit]

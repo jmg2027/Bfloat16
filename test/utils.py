@@ -3,24 +3,26 @@ import random
 from jaxtyping import BFloat16 as tfbfloat16
 from jaxtyping import Float32 as tffloat32
 
-from .commonimport import bf16, fp32, bf16_obj, fp32_obj
+from .commonimport import bf16, fp32, bf16_obj, fp32_obj, FloatBase, bf16_config, fp32_config
 
 from float_class.utils import bf16_ulp_dist, fp32_ulp_dist
 from typing import Generic, TypeVar, Union, Type
 
-FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+from float_class.floatclass import bf16_to_fp32, fp32_to_bf16
 
-FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
+
+FloatBaseT = Union[fp32, bf16]
 TestInputT = Union[int, float, bf16, fp32]
 
 def conv_from_float(f: float, ftype: Type[FloatBaseT]) -> FloatBaseT:
-    return ftype.from_float(f)
+    ftype_obj: FloatBaseT = ftype(0, 0, 0)
+    return ftype_obj.from_float(f)
 
 def convert_to_bf16(num: float) -> bf16:
-    return bf16.from_float(num)
+    return bf16_obj.from_float(num)
 
 def convert_to_fp32(num: float) -> fp32:
-    return fp32.from_float(num)
+    return fp32_obj.from_float(num)
 
 def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32) -> Union[tfbfloat16, tffloat32]:
     '''
@@ -50,24 +52,25 @@ def cast_float(frepr: TestInputT, \
                 -> FloatBaseT:
     # use float representation for integer inputs
     # integer inputs are used to hex input
+    ftype_obj: FloatBaseT = ftype(0, 0, 0)
     if isinstance(frepr, int) &  (ftype == fp32):
         # integer/hex repr
-        return ftype.from_hex(frepr & 0xFFFF_FFFF)
+        return ftype_obj.from_hex(frepr & 0xFFFF_FFFF)
     elif isinstance(frepr, int) &  (ftype == bf16):
         # integer/hex repr
-        return ftype.from_hex(frepr & 0xFFFF)
+        return ftype_obj.from_hex(frepr & 0xFFFF)
     elif isinstance(frepr, float):
         # python float repr
-        return ftype.from_float(frepr)
+        return ftype_obj.from_float(frepr)
     elif isinstance(frepr, ftype):
         # need not to cast
         return frepr
     elif isinstance(frepr, bf16) & (ftype == fp32):
         # bf16 -> fp32
-        return bf16.bf16_to_fp32(frepr)
+        return bf16_to_fp32(frepr)
     elif isinstance(frepr, fp32) & (ftype == bf16):
         # bf16 -> fp32
-        return fp32.fp32_to_bf16(frepr)
+        return fp32_to_bf16(frepr)
     else:
         raise TypeError(f"Supported float representations are: hex(int), float, bf16, fp32. Current input: {frepr}")
         
@@ -89,21 +92,21 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
         return False
 
 def random_bf16() -> bf16:
-    min_exp = - bf16_obj.exp_max + 1
-    max_exp = bf16_obj.exp_max
+    min_exp = - bf16_config.exp_max + 1
+    max_exp = bf16_config.exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = bf16_obj.mant_max
+    max_mant = bf16_config.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
 def random_fp32() -> fp32:
-    min_exp = - fp32_obj.exp_max + 1
-    max_exp = fp32_obj.exp_max
+    min_exp = - fp32_config.exp_max + 1
+    max_exp = fp32_config.exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = fp32_obj.mant_max
+    max_mant = fp32_config.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return fp32(rand_sign, rand_exp, rand_mant)
@@ -113,7 +116,7 @@ def random_bf16_range(exp_min: int = -10, exp_max: int = 10) -> bf16:
     max_exp = exp_max
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
-    max_mant = bf16_obj.mant_max
+    max_mant = bf16_config.mant_max
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
