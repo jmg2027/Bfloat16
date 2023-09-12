@@ -1,6 +1,6 @@
 #from ..utils.commonimport import *
 import float_class as fc
-#from float_class import *
+from float_class import *
 from typing import Generic, TypeVar
 from ..utils import utils as hwutil
 
@@ -12,7 +12,6 @@ FloatBaseT = TypeVar('FloatBaseT', bound='fc.FloatBase')
 class FloatMultiplication(Generic[FloatBaseT]):
     
     def __init__(self, a: FloatBaseT, b: FloatBaseT) -> None:
-        from ..utils.commonimport import bf16, fp32, bit, sbit, ubit, fp32_obj, bf16_obj
         self.a = a
         self.b = b
 
