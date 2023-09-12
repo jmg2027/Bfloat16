@@ -13,63 +13,31 @@ from .bitstring import BitString as bit
 from .bitstring import SignedBitString as sbit
 from .bitstring import UnsignedBitString as ubit
 
-#from float_class.hw_model import Add, Mul, Fma, Neg, FPtoInt, InttoFP, Pow, Summation, BF16toFP32, FP32toBF16
-#from float_class.hw_model.fp_mul.fpmul import FloatMultiplication as Mul
 import float_class.hw_model as hw_model
 
 
+class _FPConfig:
+    __slots__ = ('sign_bitpos', 'exponent_bits', 'mantissa_bits',
+                 'bias', 'exp_max', 'mant_max')
+
+    def __init__(self, bw: int, e: int, m: int):
+        self.sign_bitpos = bw
+        self.exponent_bits = e
+        self.mantissa_bits = m
+        self.bias = 1 << (e - 1) - 1
+        self.exp_max = 1 << (e - 1)
+        self.mant_max = 1 << m - 1
+        pass
+
+_fp32_config = _FPConfig(32, 8, 23)
+_bf16_config = _FPConfig(16, 8, 7)
+
+
 class FloatBase(metaclass=ABCMeta):
-    """
-    Base class for floating-point numbers.
-    """
-    _sign_bitpos: int = 64
-    _exponent_bits: int = 11
-    _mantissa_bits: int = 52
-
-    @property
-    def sign_bitpos(self) -> int:
-        return self._sign_bitpos
-
-    @property
-    def exponent_bits(self) -> int:
-        return self._exponent_bits
-
-    @property
-    def mantissa_bits(self) -> int:
-        return self._mantissa_bits
-
-    @property
-    def bias(self) -> int:
-        return (1 << (self._exponent_bits - 1)) - 1
-
-    @property
-    def exp_max(self) -> int:
-        return (1 << (self._exponent_bits - 1))
-
-    @property
-    def mant_max(self) -> int:
-        return (1 << self._mantissa_bits) - 1
-
-    @classmethod
-    def _bias(cls) -> int:
-        return (1 << (cls._exponent_bits - 1)) - 1
-
-    @classmethod
-    def _exp_max(cls) -> int:
-        return (1 << (cls._exponent_bits - 1))
-
-    @classmethod
-    def _mant_max(cls) -> int:
-        return (1 << cls._mantissa_bits) - 1
-
     def __init__(self, sign: int, exponent: int, mantissa: int,     
-                _sign_bitpos: int = 64, 
-                _exponent_bits: int = 11, 
-                _mantissa_bits: int = 52) -> None:
+                config: _FPConfig) -> None:
         # call setter in __init__
-        self._sign_bitpos = _sign_bitpos
-        self._exponent_bits = _exponent_bits
-        self._mantissa_bits = _mantissa_bits
+        self._config = config
         self.set(sign, exponent, mantissa)
 
     def set(self, sign: int, exponent: int, mantissa: int) -> None:
@@ -83,8 +51,8 @@ class FloatBase(metaclass=ABCMeta):
         return sign
 
     def set_exponent(self, exponent: int) -> int:
-        if not 0 - self.bias <= exponent <= self.exp_max:
-            raise FloatValueError(f"{self.__class__.__name__} exponent value must be in range of {-self._bias()} ~ {self.exp_max}")
+        if not (0 - self._config.bias) <= exponent <= self._config.exp_max:
+            raise FloatValueError(f"{self.__class__.__name__} exponent value must be in range of {-self._config.bias} ~ {self._config.exp_max}")
         return exponent
 
     def set_mantissa(self, mantissa: int) -> int:
