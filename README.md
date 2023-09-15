@@ -82,3 +82,10 @@ class FBInt
 
 To prevent circular import, separate hw_model using bf16/fp32 methods into FBInt and inherit it.
 Merge Methods in bfloat16/float32 into FB. Make bfloat16/float32 as wrapper or factory
+
+summation:
+   vector input     scalar input    output
+0: fp32                  fp32        fp32
+1: bf16                  bf16        fp32
+2: bf16                  fp32        fp32
+3: bf16                  bf16        bf16
