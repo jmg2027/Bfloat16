@@ -141,14 +141,18 @@ class FloatBase(metaclass=ABCMeta):
     def __repr__(self):
         return f"{self.__class__.__name__}(sign = {self.fp_int.sign}, exponent={self.fp_int.exponent}, mantissa={self.fp_int.mantissa})"
 
+    @staticmethod
+    def _validate_operands_to_mod(*ops, mod_structure: Dict[int, Tuple[Tuple[Type, ...], Type]]) -> int:
+        '''
+        mod_structure: {mod: ((input, ...), result), ...}
+        fma_mod = {0: ((bf16, bf16, bf16), bf16), 1: ((bf16, bf16, fp32), fp32), 2: ((fp32, fp32, fp32), fp32)}
+        '''
+        mod: int = next((key for key, value in mod_structure.items() if tuple(map(type, ops)) == value[0]), -1)
+        if mod == -1:
+            raise FloatTypeError('TYPE_MISMATCH', value = (ops, tuple(map(lambda x: type(x), ops))), expected_type=mod_structure.values())
+        return mod
+
     # Operations in HW component
-    def _validate_operand_magic_methods(self, other: Self) -> bool:
-        if not isinstance(other, FloatBase):
-            raise FloatTypeError('INVALID_OPERAND', value = (self, other), expected_type=type(self))
-        if type(self) is not type(other):
-            raise FloatTypeError('TYPE_MISMATCH', value = (self, other), expected_type=type(self))
-        return True
-    
     def _perform_sigle_operand_operation(self, op_class: Type) -> Self:
         a_bit: FPBitT = self.decompose()
         perform_op = op_class(a_bit)    # I don't want to annotate... This is hw_model classes
@@ -157,7 +161,7 @@ class FloatBase(metaclass=ABCMeta):
         return result
     
     def _perform_two_operand_operation(self, other: Self, op_class: Type) -> Self:
-        self._validate_operand_magic_methods(other)
+        self._validate_operands_to_mod(self, other, mod_structure = {0: ((Bfloat16, Bfloat16), Bfloat16), 1: ((Float32, Float32), Float32)})
         bf16_input = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
         if bf16_input:
             self = bf16_to_fp32(self)

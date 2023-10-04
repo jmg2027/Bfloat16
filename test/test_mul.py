@@ -30,7 +30,8 @@ class TestMul(TestOperationBase):
             (bf16(1, 80, 30), fp32(0, -1, 500000))
     ]
 
-    ftype: Type = fp32
+    #ftype: Type = fp32
+    ftype: opwrap
     _INPUT_NUM = 2
     _TEST_SET_STRUCTURE = '[(num1, num2), (num3, num4), ...]'
 

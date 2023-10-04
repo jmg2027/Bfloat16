@@ -72,7 +72,7 @@ class FloatSummation(Generic[FloatBaseT]):
     def set_acc(self, fp: 'fp32') -> None:
         self.acc = fp
 
-    def summation(self):
+    def excute(self):
         # Special cases
         # Need handle accumulator later...
         # input

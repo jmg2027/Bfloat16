@@ -5,6 +5,7 @@ from float_class import bf16, fp32
 
 import test
 import test.utils
+import float_class.floatopwrap as opwrap
 
 from typing import (
     Union,
@@ -103,6 +104,7 @@ def test_random_all(times):
 
 
 if __name__ == "__main__":
+    test_mul(opwrap)
 #    test_mul(fp32)
 #    test_mul(bf16)
 #    test_add(fp32)

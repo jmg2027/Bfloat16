@@ -9,8 +9,23 @@ OpFuncT = Callable[[Tuple[FloatTffloatT, ...]], FloatTffloatT]
 
 
 class TestAbsClass(metaclass=ABCMeta):
+    # Test will have number of mods...
+    # In case of fma, it will have 3 mods
+    # mod 0: a, b = bf16, c = bf16
+    # mod 1: a, b = bf16, c = fp32
+    # mod 2: a, b = fp32, c = fp32
+    # then it will have 3 test sets
+    # test_set_0: List[Tuple[bf16, bf16, bf16]]
+    # test_set_1: List[Tuple[bf16, bf16, fp32]]
+    # test_set_2: List[Tuple[fp32, fp32, fp32]]
+    # by test set types, it will be able to know which mod it should use
+    # and it will be able to know which operation it should use
+    # You need to convert test_set to format of test_set
+    # It will be given 
     test_set: List
-    ftype: Type[FloatBaseT]
+    mod_structure: Dict[int, Tuple[Type, ...]]
+    #ftype: Type[FloatBaseT]
+    ftype = opwrap
     _INPUT_NUM: int
     
     @abstractmethod
@@ -64,6 +79,7 @@ class TestOperationBase(TestAbsClass):
     Parent class for testing operations
     """
     test_set: List
+    mod_structure: Dict[int, Tuple[Type, ...]]
     ftype: Type[Self]
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
@@ -100,8 +116,10 @@ class TestOperationBase(TestAbsClass):
     def _set_f_ops(self, ftype: Type[Self]) -> Dict[str, Union[OpFuncT, None]]:
         return \
         {
-            'mul': getattr(ftype, '__mul__', None),
-            'add': getattr(ftype, '__add__', None),
+            #'mul': getattr(ftype, '__mul__', None),
+            #'add': getattr(ftype, '__add__', None),
+            'mul': getattr(ftype, 'mul', None),
+            'add': getattr(ftype, 'add', None),
             'fma': getattr(ftype, 'fma', None),
             'summation': getattr(ftype, 'summation', None),
         }
