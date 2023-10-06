@@ -7,6 +7,10 @@ import test
 import test.utils
 import float_class.floatopwrap as opwrap
 
+# delete opwrap
+# make test auto convert to each types by its mod value
+# summation has its own mod in floatclass
+
 from typing import (
     Union,
     Type,
@@ -30,95 +34,86 @@ from test.utils import FloatBaseT
 # t = test.test_class.T(mul, ftype)
 # t.test()
 
-def test_bf16_module():
-    test.test_bf16module.test()
-
-def test_pow():
-    test.test_power.test()
-
-def test_neg():
-    test.test_neg.test()
-
-def test_mul(ftype: Type[FloatBaseT] = fp32):
-    t = test.test_mul.TestMul(ftype)
+def test_mul(mod = 0):
+    t = test.test_mul.TestMul(mod)
     t.test()
 
-def test_add(ftype: Type[FloatBaseT] = fp32):
-    t = test.test_add.TestAdd(ftype)
+def test_add(mod = 0):
+    t = test.test_add.TestAdd(mod)
     t.test()
 
-def test_fma():
-    test.test_fma.test()
+def test_fma(mod = 0):
+    t = test.test_add.TestFma(mod)
+    t.test()
 
-def test_summation():
-    test.test_summation.test()
+def test_summation(mod = 0):
+    t = test.test_add.TestSummation(mod)
+    t.test()
 
-def test_fptoint():
-    test.test_fptoint.test()
+def test_fptoint(mod = 0):
+    t = test.test_add.TestFptoint(mod)
+    t.test()
 
-def test_inttofp():
-    test.test_inttofp.test()
+def test_inttofp(mod = 0):
+    t = test.test_add.TestInttofp(mod)
+    t.test()
 
-def test_all():
-    test_bf16_module()
-    test_pow()
-    test_neg()
-    test_mul()
-    test_add()
-    test_fma()
-    test_summation()
-    test_fptoint()
-    test_inttofp()
-
-def test_rand_mul(times, ftype: Type[FloatBaseT]):
-    t = test.test_mul.TestMul(ftype)
+def test_rand_mul(times = 1000, mod = 0):
+    t = test.test_mul.TestMul(mod)
     t.rand_test(times)
     return
 
-def test_rand_add(times):
-    test.test_add.rand_test(times)
+def test_rand_add(times = 1000, mod = 0):
+    t = test.test_mul.TestAdd(mod)
+    t.rand_test(times)
     return
 
-def test_rand_fma(times):
-    test.test_fma.rand_test(times)
+def test_rand_fma(times = 1000, mod = 0):
+    t = test.test_mul.TestFma(mod)
+    t.rand_test(times)
     return
 
-def test_rand_summation(times):
-    test.test_summation.rand_test(times)
+def test_rand_summation(times = 1000, mod = 0):
+    t = test.test_mul.TestSummation(mod)
+    t.rand_test(times)
     return
 
-def test_rand_fptoint(times):
-    test.test_fptoint.rand_test(times)
+def test_rand_fptoint(times = 1000, mod = 0):
+    t = test.test_mul.TestFptoint(mod)
+    t.rand_test(times)
 
-def test_rand_inttofp(times):
-    test.test_inttofp.rand_test(times)
-
-def test_random_all(times):
-    test_rand_mul(times)
-    test_rand_add(times)
-    test_rand_fma(times)
-    test_rand_summation(times)
-    test_rand_fptoint(times)
-    test_rand_inttofp(times)
-    pass
-
+def test_rand_inttofp(times = 1000, mod = 0):
+    t = test.test_mul.TestInttofp(mod)
+    t.rand_test(times)
 
 if __name__ == "__main__":
-    test_mul(opwrap)
-#    test_mul(fp32)
-#    test_mul(bf16)
-#    test_add(fp32)
-#    test_add(bf16)
-#    test_fma(mod_0)
-#    test_fma(mod_1)
-#    test_fma(mod_2)
-#    test_summation()
-#    test_summation()
-#    test_fptoint()
-#    test_inttofp()
-#    test_rand_mul(1000)
-#    test_rand_add(10000)
-#    test_rand_fma(1000)
-#    test_rand_summation(10)
-#    test_rand_fptoint(1000)
-#    test_rand_inttofp(1000)
+    test_mul(mod = 0)
+    test_mul(mod = 1)
+    test_add(mod = 0)
+    test_add(mod = 1)
+    test_fma(mod = 0)
+    test_fma(mod = 1)
+    test_fma(mod = 2)
+    test_summation(mod = 0)
+    test_summation(mod = 1)
+    test_summation(mod = 2)
+    test_summation(mod = 3)
+    test_fptoint(mod = 0)
+    test_fptoint(mod = 1)
+    test_inttofp(mod = 0)
+    test_inttofp(mod = 1)
+    test_rand_mul(mod = 0)
+    test_rand_mul(mod = 1)
+    test_rand_add(mod = 0)
+    test_rand_add(mod = 1)
+    test_rand_fma(mod = 0)
+    test_rand_fma(mod = 1)
+    test_rand_fma(mod = 2)
+    test_rand_summation(mod = 0)
+    test_rand_summation(mod = 1)
+    test_rand_summation(mod = 2)
+    test_rand_summation(mod = 3)
+    test_rand_fptoint(mod = 0)
+    test_rand_fptoint(mod = 1)
+    test_rand_inttofp(mod = 0)
+    test_rand_inttofp(mod = 1)
