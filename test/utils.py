@@ -91,6 +91,14 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     else:
         return False
 
+def random_fp(ftype):
+    if ftype == bf16:
+        return random_bf16()
+    elif ftype == fp32:
+        return random_fp32()
+    else:
+        raise TypeError("Use this function only for Bfloat16 and Float32 type")
+
 def random_bf16() -> bf16:
     min_exp = - bf16_config.exp_max + 1
     max_exp = bf16_config.exp_max

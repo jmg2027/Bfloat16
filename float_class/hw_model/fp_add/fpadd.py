@@ -65,7 +65,6 @@ class FloatAddition:
         # normal case
         else:
             isnormal = True
-
         
         if isnormal:
             # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6489167

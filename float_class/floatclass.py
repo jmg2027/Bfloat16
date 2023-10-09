@@ -164,16 +164,22 @@ class FloatBase(metaclass=ABCMeta):
         self._validate_operands_to_mod(self, other, mod_structure = {0: ((Bfloat16, Bfloat16), Bfloat16), 1: ((Float32, Float32), Float32)})
         bf16_input = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
         if bf16_input:
-            self = bf16_to_fp32(self)
-            other = bf16_to_fp32(other)
-        a_bit: FPBitT = self.decompose()
-        b_bit: FPBitT = other.decompose()
+            self_fp32 = bf16_to_fp32(self)
+            other_fp32 = bf16_to_fp32(other)
+        else:
+            self_fp32 = self
+            other_fp32 = other
+        a_bit: FPBitT = self_fp32.decompose()
+        b_bit: FPBitT = other_fp32.decompose()
         perform_op = op_class(a_bit, b_bit)    # I don't want to annotate... This is hw_model classes
         result_bit = perform_op.excute()
-        result = self.compose(result_bit[0], result_bit[1], result_bit[2])
+        fp32 = Float32(0, 0, 0)
+        result_fp32 = fp32.compose(result_bit[0], result_bit[1], result_bit[2])
         bf16_output = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
         if bf16_output:
-            result = fp32_to_bf16(result)
+            result = fp32_to_bf16(result_fp32)
+        else:
+            result = result_fp32
         return result
 
     def __add__(self, other: Self) -> Self:
@@ -185,89 +191,13 @@ class FloatBase(metaclass=ABCMeta):
     def __mul__(self, other: Self) -> Self:
         return self._perform_two_operand_operation(other, hw_model.Mul)
 
-    def fma(self, a: Self, b: Self, c: Self, mod: int = 0) -> Self:
-        if not isinstance(a or b or c, FloatBase):
-            raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type=type(self))
-        if not (type(a) == type(b) == type(c)):
-            raise FloatTypeError('TYPE_MISMATCH', value = (a, b, c), expected_type=type(self))
-        # mod 0: a, b = bf16, c = bf16
-        # mod 1: a, b = bf16, c = fp32
-        # mod 2: a, b = fp32, c = fp32
-        if mod == 0:
-            bf16_input = isinstance(a, Bfloat16) & isinstance(b, Bfloat16) & isinstance(c, Bfloat16)
-            if bf16_input:
-                a = bf16_to_fp32(a)
-                b = bf16_to_fp32(b)
-                c = bf16_to_fp32(c)
-        elif mod == 1:
-            bf16_input = isinstance(a, Bfloat16) & isinstance(b, Bfloat16)
-            if bf16_input:
-                a = bf16_to_fp32(a)
-                b = bf16_to_fp32(b)
-        elif mod == 2:
-            pass
-        a_bit: Tuple[bit, bit, bit] = a.decompose()
-        b_bit: Tuple[bit, bit, bit] = b.decompose()
-        c_bit: Tuple[bit, bit, bit] = c.decompose()
-        fma = hw_model.Fma(a_bit, b_bit, c_bit)
-        result_bit = fma.excute()
-        result = self.compose(result_bit[0], result_bit[1], result_bit[2])
-        if mod == 0:
-            bf16_output = isinstance(a, Bfloat16) & isinstance(b, Bfloat16) & isinstance(c, Bfloat16)
-            if bf16_output:
-                result = fp32_to_bf16(result)
-        elif mod == 1:
-            bf16_output = isinstance(a, Bfloat16) & isinstance(b, Bfloat16)
-            if bf16_output:
-                result = fp32_to_bf16(result)
-        elif mod == 2:
-            pass
-        return result
-    
-    '''
-    @classmethod
-    def mru(cls, input_vector, weight_vector) -> Self:
-        for v in input_vector:
-            if not isinstance(v, FloatBase):
-                raise FloatTypeError("All input vector operands should be FloatBase objects.")
-        for v in weight_vector:
-            if not isinstance(v, FloatBase):
-                raise FloatTypeError("All weight vector operands should be FloatBase objects.")
-        mru = MRU(input_vector, weight_vector)
-        return MRU.summation()
-    '''
-    
-    @classmethod
-    def summation(cls: Type[Self], vector_list: List[List[Self]]) -> 'Float32':
-        '''
-        Vector format:
-        [[vector 0], [vector 1], ..., [vector n]]
-        Result:
-        reduce_sum(vector 0, vector 1, ..., vector n)
-        '''
-        for vl in vector_list:
-            for v in vl:
-                if not isinstance(v, FloatBase):
-                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
-                    #raise FloatTypeError("All input vector operands should be FloatBase objects.")
-        # Convert to FP32
-        if cls == Bfloat16:
-            fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
-        elif cls == Float32:
-            fp32_vector_list = [[v for v in vl] for vl in vector_list]
-        else:
-            raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
-        summation = hw_model.Summation(fp32_vector_list)
-        summation.set_acc(cls(0, -127, 0))
-        for v in summation.vector_list:
-            summation.set_vector(v)
-            acc = summation.summation()
-            summation.set_acc(acc)
-        return summation.acc
+    @abstractmethod
+    def fma(cls, a, b, c):
+        pass
 
-    # from_blahblah method
-    # ex) from_fp32, from_fp64
-    # ex) to_fp32, to_fp64
+    @abstractmethod
+    def summation(cls, vector_list, mod):
+        pass
 
     def __int__(self) -> int:
         # extract integer part
@@ -357,7 +287,56 @@ class Bfloat16(FloatBase):
     def bf16_to_tfbf16(self) -> tfbfloat16:
         return util.float_to_tfbf16(float(self))
 
-    
+    @classmethod
+    def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16') -> 'Bfloat16':
+        # mod 0: a, b = bf16, c = bf16
+        if not isinstance(a or b or c, cls):
+            raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type=type(cls))
+        a_input = bf16_to_fp32(a)
+        b_input = bf16_to_fp32(b)
+        c_input = bf16_to_fp32(c)
+        a_bit: Tuple[bit, bit, bit] = a_input.decompose()
+        b_bit: Tuple[bit, bit, bit] = b_input.decompose()
+        c_bit: Tuple[bit, bit, bit] = c_input.decompose()
+        fma = hw_model.Fma(a_bit, b_bit, c_bit)
+        result_bit = fma.excute()
+        result = Float32(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        result = fp32_to_bf16(result)
+        return result
+
+    @classmethod
+    def summation(cls: Type[Self], vector_list: List[List[Self]], mod = 3) -> 'Bfloat16':
+        #        vector input   scalar input   output
+        # mod 0: fp32, fp32, fp32
+        # mod 1: bf16, bf16, fp32
+        # mod 2: bf16, fp32, fp32
+        # mod 3: bf16, bf16, bf16
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, cls):
+                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+        # initialize accumulator
+        acc = cls(0, 0, 0)
+        # Convert to FP32
+        fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        acc_bit = acc.decompose()
+        for v in fp32_vector_list:
+            vector_bit = [e.decompose() for e in v]
+            summation = hw_model.Summation(vector_bit, acc_bit)
+            acc_bit = summation.excute()
+            summation.set_acc(acc_bit)
+        result = Float32(0, 0, 0)
+        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+        result = fp32_to_bf16(result)
+        return result
+
 
 class Float32(FloatBase):
     """
@@ -402,6 +381,77 @@ class Float32(FloatBase):
     def fp32_to_tffp32(self) -> tffloat32:
         return util.float_to_tffp32(float(self))
 
+    @classmethod
+    def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32') -> Union['Bfloat16', 'Float32']:
+        # mod 1: a, b = bf16, c = fp32
+        # mod 2: a, b = fp32, c = fp32
+        mod_1 = isinstance(a, Bfloat16) & isinstance(b, Bfloat16) & isinstance(c, Float32)
+        mod_2 = isinstance(a, Float32) & isinstance(b, Float32) & isinstance(c, Float32)
+        if not mod_1 and not mod_2:
+            raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type='bf16/fp32, bf16/fp32, fp32')
+        if mod_1:
+            a_input = bf16_to_fp32(a)
+            b_input = bf16_to_fp32(b)
+            c_input = c
+        else:
+            a_input = a
+            b_input = b
+            c_input = c
+        a_bit: Tuple[bit, bit, bit] = a_input.decompose()
+        b_bit: Tuple[bit, bit, bit] = b_input.decompose()
+        c_bit: Tuple[bit, bit, bit] = c_input.decompose()
+        fma = hw_model.Fma(a_bit, b_bit, c_bit)
+        result_bit = fma.excute()
+        result = Float32(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        return result
+
+    @classmethod
+    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], mod = 0) -> Union['Bfloat16', 'Float32']:
+        #        vector input   scalar input   output
+        # mod 0: fp32, fp32, fp32
+        # mod 1: bf16, bf16, fp32
+        # mod 2: bf16, fp32, fp32
+        # mod 3: bf16, bf16, bf16
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, cls):
+                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+        acc = cls(0, 0, 0)
+        if mod == 0:
+        # initialize accumulator
+            fp32_vector_list: List[List[Self]] = vector_list
+        elif mod == 1:
+            # Convert to FP32
+            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        elif mod == 2:
+            # Convert to FP32
+            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        else:
+            raise FloatTypeError('INVALID_MOD', value = mod)
+        #acc_fp32_bit = acc_fp32.decompose()
+        for v in fp32_vector_list:
+            if mod == 0 or mod == 2:
+                # convert acc to bf16 for rounding
+                acc = fp32_to_bf16(acc)
+                # re-convert acc to fp32
+                acc = bf16_to_fp32(acc)
+            elif mod == 1:
+                acc = acc
+            acc_bit = acc.decompose()
+            vector_bit = [e.decompose() for e in v]
+            summation = hw_model.Summation(vector_bit, acc_bit)
+            acc_bit = summation.excute()
+            summation.set_acc(acc_bit)
+        result = Float32(0, 0, 0)
+        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+        return result
 
 # Converter function
 def bf16_to_fp32(bf16: Bfloat16) -> Float32:

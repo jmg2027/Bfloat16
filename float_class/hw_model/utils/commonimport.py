@@ -6,7 +6,7 @@ from float_class.floatint import bf16_config, fp32_config
 from float_class.bitstring import BitString as bit
 from float_class.bitstring import SignedBitString as sbit
 from float_class.bitstring import UnsignedBitString as ubit
-from typing import Generic, TypeVar, Tuple
+from typing import Generic, TypeVar, Tuple, List
 from ..utils import utils as hwutil
 from ..utils.utils import isnan, isinf, iszero
 
@@ -15,3 +15,4 @@ FloatBaseT = TypeVar('FloatBaseT')
 
 #
 FPBitT = Tuple[bit, bit, bit]
+FPBitVectorT = List[FPBitT]

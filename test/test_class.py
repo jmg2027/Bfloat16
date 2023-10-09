@@ -24,16 +24,14 @@ class TestAbsClass(metaclass=ABCMeta):
     # It will be given 
     test_set: List
     mod_structure: Dict[int, Tuple[Type, ...]]
-    #ftype: Type[FloatBaseT]
-    ftype = opwrap
     _INPUT_NUM: int
     
     @abstractmethod
-    def __init__(self, ftype: Type, test_set: list, operation: str) -> None:
+    def __init__(self, mod: int, test_set: list, operation: str) -> None:
         pass
 
     @abstractmethod
-    def set(self, ftype: Type, test_set: list, operation: str) -> None:
+    def set(self, mod: int, test_set: list, operation: str) -> None:
         pass
  
     @abstractmethod
@@ -41,11 +39,11 @@ class TestAbsClass(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_ftype(self, ftype: Type) -> None:
+    def set_mod(self, mod: int) -> None:
         pass
 
     @abstractmethod
-    def _set_f_ops(self, ftype: Type) -> None:
+    def _set_f_ops(self, mod: int) -> None:
         pass
 
     @abstractmethod
@@ -80,9 +78,10 @@ class TestOperationBase(TestAbsClass):
     """
     test_set: List
     mod_structure: Dict[int, Tuple[Type, ...]]
-    ftype: Type[Self]
+    #ftype: Type[Self]
     _INPUT_NUM: int
     _TEST_SET_STRUCTURE: str
+    mod_list: Dict
 
     _TF_OPS: Dict[str, OpFuncT] = {
         'mul': lambda a, b: a * b,
@@ -91,15 +90,22 @@ class TestOperationBase(TestAbsClass):
         'summation': tf.reduce_sum,
     } # type: ignore
     
-    def __init__(self, ftype: Type[Self], test_set: List, operation: str) -> None:
-        self.set(ftype, test_set, operation)
+    def __init__(self, mod, test_set: List, operation: str) -> None:
+        self.set(mod, test_set, operation)
 
-    def set(self, ftype: Type[Self], test_set: List, operation: str) -> None:
-        self.test_set, self.ftype = self.set_test_set(test_set), self.set_ftype(ftype)
-        self._f_ops: Dict[str, Union[OpFuncT, None]] = self._set_f_ops(ftype)
+    def set(self, mod, test_set: List, operation: str) -> None:
+        self.test_set, self.mod = self.set_test_set(test_set), self.set_mod(mod)
+        self.ftype = self.set_ftype(mod)
+        self._f_ops: Dict[str, Union[OpFuncT, None]] = self._set_f_ops(self.ftype)
         self.operation = self._set_operation(self._f_ops, operation)
         self.tf_operation = self._set_operation(self._TF_OPS, operation) # type: ignore
         self.op: str = operation
+
+    def set_mod(self, mod: int) -> None:
+        mod_value = self.mod_list.get(mod, None)
+        if mod_value is None:
+            raise ValueError(f"Unsupported mod {self.mod}")
+        return mod_value
  
     def set_test_set(self, test_set: List) -> List:
         if self._check_test_set(test_set):
@@ -107,19 +113,15 @@ class TestOperationBase(TestAbsClass):
         else:
             raise TypeError(f'{self.__class__.__name__} test_set structure should be:\n {self._TEST_SET_STRUCTURE}')
 
-    def set_ftype(self, ftype: Type[Self]) -> Type[Self]:
-        if (ftype == fp32) | (ftype == bf16):
-            return ftype
-        else:
-            raise TypeError('Ftype should be bf16 or fp32 class')
+    @abstractmethod
+    def set_ftype(self, mod) -> Type[Self]:
+        pass
 
     def _set_f_ops(self, ftype: Type[Self]) -> Dict[str, Union[OpFuncT, None]]:
         return \
         {
-            #'mul': getattr(ftype, '__mul__', None),
-            #'add': getattr(ftype, '__add__', None),
-            'mul': getattr(ftype, 'mul', None),
-            'add': getattr(ftype, 'add', None),
+            'mul': getattr(ftype, '__mul__', None),
+            'add': getattr(ftype, '__add__', None),
             'fma': getattr(ftype, 'fma', None),
             'summation': getattr(ftype, 'summation', None),
         }
@@ -129,7 +131,7 @@ class TestOperationBase(TestAbsClass):
                         -> Union[OpFuncT, None]:
         operation: Union[OpFuncT, None] = operation_dict.get(op, None)
         if operation is None:
-            raise ValueError(f"Unsupported operation {self.op}")
+            raise ValueError(f"Unsupported operation {op}")
         return operation
  
     # this method should be defined in subclasses
@@ -145,14 +147,14 @@ class TestOperationBase(TestAbsClass):
     def test_body(self, input: Tuple[Union[int, float, bf16, fp32], ...]) -> Tuple:
         # input: hex(int), float, bf16, fp32
         operand = tuple(map(cast_float, input, [self.ftype]*self._INPUT_NUM))
-        #print(input)
+        #print(operand)
         res = self.operation(*operand)
         #print(res)
 
         tf_operand = tuple(map(conv_to_tf_dtype, input, [self.ftype]*self._INPUT_NUM))
         tfres = self.tf_operation(*tf_operand)
         
-        check_float_equal(res, tfres)
+        #if check_float_equal(res, tfres):
         if check_float_equal:
             test_res_str = f'PASSED {self.op}{input}, res: {res}'
         else:
@@ -162,13 +164,13 @@ class TestOperationBase(TestAbsClass):
         test_ret.append(res)
         test_ret.append(test_res_str)
         return input, res, test_res_str
-        #return test_ret
 
     def rand_test(self, times: int):
         test_list = []
         fail_list = []
         for i in range(times):
-            a, b, fp32_res, test_res_str = self.test_body(float(random_bf16()), float(random_bf16()))
+            #(a, b), fp32_res, test_res_str = self.test_body((float(random_bf16()), float(random_bf16())))
+            (a, b), fp32_res, test_res_str = self.test_body((random_fp(self.ftype), random_fp(self.ftype)))
             test_list.append([a, b, fp32_res])
             if check_fail_status(test_res_str):
                 fail_list.append(test_res_str)

@@ -49,12 +49,24 @@ class TestAdd(TestOperationBase):
             (float(bf16(0, 8, bf16_config.mant_max)), float(bf16(0, 0, bf16_config.mant_max))),
     ]
 
-    ftype: Type = fp32
+    test_operation = 'add'
     _INPUT_NUM = 2
     _TEST_SET_STRUCTURE = '[(num1, num2), (num3, num4), ...]'
+    mod_list = {0: (bf16, bf16), 1: (fp32, fp32)}
 
-    def __init__(self, ftype: Type[FloatBaseT] = fp32, test_set = test_set) -> None:
-        super().__init__(ftype, test_set, 'add')
+    def __init__(self, mod, test_set = test_set) -> None:
+        super().__init__(mod, test_set, self.test_operation)
+        input_ftype = self.set_input_ftype(mod)
+
+    # this method should be defined in subclasses
+    def set_ftype(self, mod):
+        ftype = self.mod_list[mod][1]
+        return ftype
+
+    # this method should be defined in subclasses
+    def set_input_ftype(self, mod):
+        ftype = self.mod_list[mod][0]
+        return ftype
 
     # this method should be defined in subclasses
     def _check_test_set(self, test_set: list) -> bool:
