@@ -1,34 +1,27 @@
 from ..utils.commonimport import *
+#from ..utils.utils import isnan, isinf, iszero
 
 
-class FloatFMA(Generic[FloatBaseT]):
+class FloatFMA:
     # https://repositories.lib.utexas.edu/bitstream/handle/2152/13269/quinnelle60861.pdf?sequence=2
     # a * b + c
-    def __init__(self, a: FloatBaseT, b: FloatBaseT, c: FloatBaseT) -> None:
+    def __init__(self, a: FPBitT, b: FPBitT, c: FPBitT) -> None:
         self.a = a
         self.b = b
         self.c = c
 
-    def fma(self) -> FloatBaseT:
-        # If input is Bfloat16, bf16_to_fp32
-        # Make flag of bf16 input
-        bf16_input = isinstance(self.a, bf16) & isinstance(self.b, bf16) & isinstance(self.c, bf16)
-        if bf16_input:
-            self.a = self.a.bf16_to_fp32()
-            self.b = self.b.bf16_to_fp32()
-            self.c = self.c.bf16_to_fp32()
-
-        a_sign, a_exp, a_mant_nohidden = self.a.decompose()
-        b_sign, b_exp, b_mant_nohidden = self.b.decompose()
-        c_sign, c_exp, c_mant_nohidden = self.c.decompose()
-        a_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{a_mant_nohidden}')
-        b_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{b_mant_nohidden}')
-        c_mant_us = ubit(fp32_obj.mantissa_bits + 1, f'1{c_mant_nohidden}')
+    def excute(self) -> FPBitT:
+        a_sign, a_exp, a_mant_nohidden = self.a
+        b_sign, b_exp, b_mant_nohidden = self.b
+        c_sign, c_exp, c_mant_nohidden = self.c
+        a_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{a_mant_nohidden}')
+        b_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{b_mant_nohidden}')
+        c_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{c_mant_nohidden}')
 
         a_exp_signed = sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
         b_exp_signed = sbit(b_exp.bitwidth + 2, f'0{b_exp.bin}')
         c_exp_signed = sbit(c_exp.bitwidth + 2, f'0{c_exp.bin}')
-        bias_signed = sbit(a_exp.bitwidth + 2, bin(self.a.bias))
+        bias_signed = sbit(a_exp.bitwidth + 2, bin(fp32_config.bias))
 
         ret_sign_0 : bit = bit(1, '0')
         ret_exp_0 : bit = bit(1, '0')
@@ -39,33 +32,33 @@ class FloatFMA(Generic[FloatBaseT]):
         isnormal = False
         # fma(nan,?,?) -> nan
         # nan inputs clearance
-        if self.a.isnan() or self.b.isnan() or self.c.isnan():
+        if isnan(self.a) or isnan(self.b) or isnan(self.c):
             ret_sign_0 = bit(1, '0')
-            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
-            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
+            ret_exp_0 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
+            ret_mant_0 = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
         # (inf * 0) + ? -> nan
-        elif (self.a.isinf() and self.b.iszero()) or (self.b.isinf() and self.a.iszero()):
+        elif (isinf(self.a) and iszero(self.b)) or (isinf(self.b) and iszero(self.a)):
             ret_sign_0 = bit(1, '0')
-            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
-            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
+            ret_exp_0 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
+            ret_mant_0 = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
         # (inf * ?) + -inf, (-inf * ?) + inf -> nan
-        elif (self.a.isinf() or self.b.isinf()) and self.c.isinf() and (a_sign ^ b_sign ^ c_sign):
+        elif (isinf(self.a) or isinf(self.b)) and isinf(self.c) and (a_sign ^ b_sign ^ c_sign):
             ret_sign_0 = bit(1, '0')
-            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
-            ret_mant_0 = bit(fp32_obj.mantissa_bits, bin(fp32_obj.mant_max))
+            ret_exp_0 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
+            ret_mant_0 = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
         # (inf * ?) + ? -> inf, (-inf * ?) + ? -> -inf
-        elif (self.a.isinf() or self.b.isinf()):
+        elif (isinf(self.a) or isinf(self.b)):
             ret_sign_0 = a_sign ^ b_sign
-            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
-            ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
+            ret_exp_0 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
+            ret_mant_0 = bit(fp32_config.mantissa_bits, fp32_config.mantissa_bits * '0')
         # (? * ?) + inf -> inf, (? * ?) - inf -> inf
-        elif self.c.isinf():
+        elif isinf(self.c):
             ret_sign_0 = c_sign
-            ret_exp_0 = bit(fp32_obj.exponent_bits, bin(fp32_obj.exp_max + fp32_obj.bias))
-            ret_mant_0 = bit(fp32_obj.mantissa_bits, fp32_obj.mantissa_bits * '0')
+            ret_exp_0 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
+            ret_mant_0 = bit(fp32_config.mantissa_bits, fp32_config.mantissa_bits * '0')
         # FIX: add zero adddend/product cases
         # Zero product case
-        elif self.a.iszero() or self.b.iszero():
+        elif iszero(self.a) or iszero(self.b):
             # result is c
             ret_sign_0 = c_sign
             ret_exp_0 = c_exp
@@ -75,10 +68,10 @@ class FloatFMA(Generic[FloatBaseT]):
 
         if isnormal:
             # Define precision bitwidth
-            precision_bit = fp32_obj.mantissa_bits + 1
+            precision_bit = fp32_config.mantissa_bits + 1
 
             # Zero addend case
-            if self.c.iszero():
+            if iszero(self.c):
                 # set flag for normal calculation
                 addend_is_zero = True
             else:
@@ -254,29 +247,29 @@ class FloatFMA(Generic[FloatBaseT]):
 
             # Round and Postnormalization
             # Postnormalize: when mant = 1.111_1111_R (R = 1)
-            postnorm_mant = ret_mant_2[ret_mant_2.bitwidth-1:ret_mant_2.bitwidth-fp32_obj.mantissa_bits-2]
-            postnorm_cond = ubit(fp32_obj.mantissa_bits + 2, '1' * (fp32_obj.mantissa_bits + 2))
+            postnorm_mant = ret_mant_2[ret_mant_2.bitwidth-1:ret_mant_2.bitwidth-fp32_config.mantissa_bits-2]
+            postnorm_cond = ubit(fp32_config.mantissa_bits + 2, '1' * (fp32_config.mantissa_bits + 2))
             if postnorm_mant == postnorm_cond:
                 ret_exp_2 = ret_exp_1 + sbit(ret_exp_0.bitwidth + 2, '01')
-                ret_mant_3 = ubit(fp32_obj.mantissa_bits + 1, '0')
+                ret_mant_3 = ubit(fp32_config.mantissa_bits + 1, '0')
             else:
                 # round
                 ret_exp_2 = ret_exp_1
-                ret_mant_3 = hwutil.round_to_nearest_even_bit(ret_mant_2, fp32_obj.mantissa_bits + 1)
+                ret_mant_3 = hwutil.round_to_nearest_even_bit(ret_mant_2, fp32_config.mantissa_bits + 1)
             
             # Overflow case: make inf
             # ret_exp_2: 01_0000_0000 ~
-            if ret_exp_2[fp32_obj.exponent_bits + 1:0] >= sbit(fp32_obj.exponent_bits + 1 , bin((1 << self.a.exponent_bits) - 1)):
-                ret_exp_2 = sbit(fp32_obj.exponent_bits, bin((fp32_obj.exp_max + fp32_obj.bias)))
-                ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
+            if ret_exp_2[fp32_config.exponent_bits + 1:0] >= sbit(fp32_config.exponent_bits + 1 , bin((1 << fp32_config.exponent_bits) - 1)):
+                ret_exp_2 = sbit(fp32_config.exponent_bits, bin((fp32_config.exp_max + fp32_config.bias)))
+                ret_mant_3 = ubit(fp32_config.mantissa_bits, '0')
             # Underflow case: make zero
             # ret_exp_2: 11_0000_0000 ~
-            elif ret_exp_2[fp32_obj.exponent_bits + 1:0] <= sbit(fp32_obj.exponent_bits + 1, bin(0)):
-                ret_exp_2 = sbit(fp32_obj.exponent_bits, '0')
-                ret_mant_3 = ubit(fp32_obj.mantissa_bits, '0')
+            elif ret_exp_2[fp32_config.exponent_bits + 1:0] <= sbit(fp32_config.exponent_bits + 1, bin(0)):
+                ret_exp_2 = sbit(fp32_config.exponent_bits, '0')
+                ret_mant_3 = ubit(fp32_config.mantissa_bits, '0')
 
             # remove hidden bit
-            ret_mant_4 = ret_mant_3[fp32_obj.mantissa_bits - 1:0]
+            ret_mant_4 = ret_mant_3[fp32_config.mantissa_bits - 1:0]
 
             ret_sign = ret_sign_0
             ret_exp_signed = ret_exp_2
@@ -308,11 +301,6 @@ class FloatFMA(Generic[FloatBaseT]):
             ret_mant = ret_mant_0
 
         # Remove sign bit from exponent
-        ret_exp = bit(fp32_obj.exponent_bits, ret_exp_signed.bin)
+        ret_exp = bit(fp32_config.exponent_bits, ret_exp_signed.bin)
 
-        # Compose BF16
-        fma = fp32.compose(ret_sign, ret_exp, ret_mant)
-        # If input is Bfloat16, fp32_to_bf16
-        if bf16_input:
-            fma = fma.fp32_to_bf16()
-        return fma
+        return ret_sign, ret_exp, ret_mant

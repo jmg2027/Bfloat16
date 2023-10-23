@@ -30,12 +30,18 @@ class TestMul(TestOperationBase):
             (bf16(1, 80, 30), fp32(0, -1, 500000))
     ]
 
-    ftype: Type = fp32
+    test_operation = 'mul'
     _INPUT_NUM = 2
     _TEST_SET_STRUCTURE = '[(num1, num2), (num3, num4), ...]'
+    mod_list = {0: (bf16, bf16), 1: (fp32, fp32)}
 
-    def __init__(self, ftype: Type[FloatBaseT] = fp32, test_set = test_set) -> None:
-        super().__init__(ftype, test_set, 'mul')
+    def __init__(self, mod, test_set = test_set) -> None:
+        super().__init__(mod, test_set, self.test_operation)
+
+    # this method should be defined in subclasses
+    def set_ftype(self, mod):
+        ftype = self.mod_list[mod][0]
+        return ftype
 
     # this method should be defined in subclasses
     def _check_test_set(self, test_set: list) -> bool:

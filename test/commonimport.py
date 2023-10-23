@@ -14,3 +14,4 @@ from typing import (
 from typing_extensions import Self
 
 from float_class import * # why circular import is not a problem here?
+import float_class.floatopwrap as opwrap

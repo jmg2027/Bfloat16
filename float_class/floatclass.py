@@ -4,254 +4,200 @@ from jaxtyping import BFloat16 as tfbfloat16
 from jaxtyping import Float32 as tffloat32
 
 from abc import ABCMeta, abstractmethod, abstractclassmethod
-from typing import Tuple, Optional, ClassVar, Union, TypeVar, Type, Generic, List
+from typing import Tuple, Optional, ClassVar, Union, TypeVar, Type, Generic, List, Dict, Callable
 from typing_extensions import Self, TypeAlias
 
 from float_class import utils as util
+
+from .floatint import _FPConfig
+from .floatint import FloatBaseInt
+from .floatint import _bf16_config
+from .floatint import _fp32_config
+from .floatint import _fp64_config
+from .floatint import FloatTypeError
+from .floatint import FloatValueError
 
 from .bitstring import BitString as bit
 from .bitstring import SignedBitString as sbit
 from .bitstring import UnsignedBitString as ubit
 
-#FloatBaseT = TypeVar('FloatBaseT', bound='FloatBase')
-#TfFloatT = TypeVar('TfFloatT', tfbfloat16, tffloat32)
-#TestInputT: TypeAlias = Union[int, float, 'Bfloat16', 'Float32']
+import float_class.hw_model as hw_model
 
-#from hw_model import (
-#    Pow,
-#    Neg,
-#    FPtoInt,
-#    InttoFP,
-#    BF16toFP32,
-#    FP32toBF16,
-#    Mul,
-#    Add,
-#    Fma,
-#    Summation,
-#    MRU,
-#)
-from hw_model import *
-
+FPBitT = Tuple[bit, bit, bit]
 
 class FloatBase(metaclass=ABCMeta):
-    """
-    Base class for floating-point numbers.
-    """
-    _sign_bitpos: int = 64
-    _exponent_bits: int = 11
-    _mantissa_bits: int = 52
-
-    @property
-    def sign_bitpos(self) -> int:
-        return self._sign_bitpos
-
-    @property
-    def exponent_bits(self) -> int:
-        return self._exponent_bits
-
-    @property
-    def mantissa_bits(self) -> int:
-        return self._mantissa_bits
-
-    @property
-    def bias(self) -> int:
-        return (1 << (self._exponent_bits - 1)) - 1
-
-    @property
-    def exp_max(self) -> int:
-        return (1 << (self._exponent_bits - 1))
-
-    @property
-    def mant_max(self) -> int:
-        return (1 << self._mantissa_bits) - 1
-
-    @classmethod
-    def _bias(cls) -> int:
-        return (1 << (cls._exponent_bits - 1)) - 1
-
-    @classmethod
-    def _exp_max(cls) -> int:
-        return (1 << (cls._exponent_bits - 1))
-
-    @classmethod
-    def _mant_max(cls) -> int:
-        return (1 << cls._mantissa_bits) - 1
-
+    #def __init__(self, sign: int, exponent: int, mantissa: int,     
+    #            config: _FPConfig) -> None:
+    #    # call setter in __init__
+    #    self._config = config
+    #    self.set(sign, exponent, mantissa)
     def __init__(self, sign: int, exponent: int, mantissa: int,     
-                _sign_bitpos: int = 64, 
-                _exponent_bits: int = 11, 
-                _mantissa_bits: int = 52) -> None:
+                config: _FPConfig) -> None:
         # call setter in __init__
-        self._sign_bitpos = _sign_bitpos
-        self._exponent_bits = _exponent_bits
-        self._mantissa_bits = _mantissa_bits
-        self.set(sign, exponent, mantissa)
+        self.fp_int = FloatBaseInt(sign, exponent, mantissa, config)
 
-    def set(self, sign: int, exponent: int, mantissa: int) -> None:
-        self.sign: int = self.set_sign(sign)
-        self.exponent: int = self.set_exponent(exponent)
-        self.mantissa: int = self.set_mantissa(mantissa)
-
-    def set_sign(self, sign: int) -> int:
-        if not (sign == 0 or sign == 1):
-            raise FloatValueError(f"{self.__class__.__name__} sign value must be 0 or 1")
-        return sign
-
-    def set_exponent(self, exponent: int) -> int:
-        if not 0 - self.bias <= exponent <= self.exp_max:
-            raise FloatValueError(f"{self.__class__.__name__} exponent value must be in range of {-self._bias()} ~ {self.exp_max}")
-        return exponent
-
-    def set_mantissa(self, mantissa: int) -> int:
-        if not 0 <= mantissa <= self.mant_max:
-            raise FloatValueError(f"{self.__class__.__name__} mantissa value must be in range of 0 ~ {self.mant_max}")
-        return mantissa
-    
     def isnan(self) -> bool:
-        return self.exponent == self.exp_max and self.mantissa != 0
+        return self.fp_int.exponent == self.fp_int._config.exp_max and self.fp_int.mantissa != 0
     
     def isden(self) -> bool:
-        return self.exponent == 0 - self.bias and self.mantissa != 0
+        return self.fp_int.exponent == 0 - self.fp_int._config.bias and self.fp_int.mantissa != 0
     
     # den is treated as zero
     def iszero(self) -> bool:
 #        return self.exponent == 0 and self.mantissa == 0
-        return self.exponent == 0 - self.bias
+        return self.fp_int.exponent == 0 - self.fp_int._config.bias
     
     def isinf(self) -> bool:
-        return self.exponent == self.exp_max and self.mantissa == 0
+        return self.fp_int.exponent == self.fp_int._config.exp_max and self.fp_int.mantissa == 0
     
-    def isoverflow(self) -> bool:
-        flag = self.exponent > self.exp_max
-        if flag:
-            raise FloatValueError(f"Bfloat16 instance overflow occured")
-        return flag
-
-    def isunderflow(self) -> bool:
-        flag = self.exponent < 0 - self.bias
-        if flag:
-            raise FloatValueError(f"Bfloat16 instance underflow occured")
-        return flag
+    #def isoverflow(self) -> bool:
+    #    flag = self.exponent > self._config.exp_max
+    #    if flag:
+    #        raise FloatValueError(f"Bfloat16 instance overflow occured")
+    #    return flag
+    #
+    #def isunderflow(self) -> bool:
+    #    flag = self.exponent < 0 - self._config.bias
+    #    if flag:
+    #        raise FloatValueError(f"Bfloat16 instance underflow occured")
+    #    return flag
     
     def bin(self) -> str:
         """
         BF16 Floating point binary string
         Use this in hardware model
         """
-        biased_exponent = self.exponent + self.bias
-        return ''.join([format(self.sign, '01b'), format(biased_exponent, f'0{self.exponent_bits}b'), format(self.mantissa, f'0{self.mantissa_bits}b')])
+        biased_exponent = self.fp_int.exponent + self.fp_int._config.bias
+        return ''.join([format(self.fp_int.sign, '01b'), format(biased_exponent, f'0{self.fp_int._config.exponent_bits}b'), format(self.fp_int.mantissa, f'0{self.fp_int._config.mantissa_bits}b')])
 
     def hex(self) -> str:
-        return f'0x{hex(int(self.bin(), 2))[2:].zfill(self.sign_bitpos//4)}'
-    
+        return f'0x{hex(int(self.bin(), 2))[2:].zfill(self.fp_int._config.sign_bitpos//4)}'
+
+    def _from_float_pre_cal(self, fp: float) -> Tuple[int, int, int]:
+        bias = self.fp_int._config.bias
+        sign, exp_before_bias, mant = util.decomp_fp32(float(fp))
+        return sign, exp_before_bias, mant
+
+    @abstractmethod
+    def from_float(self, fp: float) -> Self:
+        pass
+
+    def from_hex(self, h: int) -> Self:
+        sign = h >> (self.fp_int._config.sign_bitpos - 1)
+        exp_bit_msb = self.fp_int._config.sign_bitpos - 1
+        exp_bit_lsb = self.fp_int._config.sign_bitpos - 1 - self.fp_int._config.exponent_bits
+        exp_mask = ((1 << exp_bit_msb) - 1) - ((1 << exp_bit_lsb) -1)
+        exponent = ((h & exp_mask) >> (self.fp_int._config.sign_bitpos - 1 - self.fp_int._config.exponent_bits)) - self.fp_int._config.bias
+        mant_mask = self.fp_int._config.mant_max
+        mantissa = h & mant_mask
+        #return self.__class__(sign, exponent, mantissa, self.fp_int._config)
+        return self.__class__(sign, exponent, mantissa)
+
     def decompose(self) -> Tuple['bit', 'bit', 'bit']:
         """
         To hardware input
         """
         binary_fp = self.bin()
         sign = binary_fp[0]
-        exponent = binary_fp[1:1+self.exponent_bits]
-        mantissa = binary_fp[-self.mantissa_bits:]
-        return bit(1, sign), bit(self.exponent_bits, exponent), bit(self.mantissa_bits, mantissa)
+        exponent = binary_fp[1:1+self.fp_int._config.exponent_bits]
+        mantissa = binary_fp[-self.fp_int._config.mantissa_bits:]
+        return bit(1, sign), bit(self.fp_int._config.exponent_bits, exponent), bit(self.fp_int._config.mantissa_bits, mantissa)
 
-    @classmethod
-    def compose(cls, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> Self:
+    #@classmethod
+    #def compose(cls, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> Self:
+    #    """
+    #    From hardware output
+    #    """
+    #    sign, biased_exponent, mantissa = tuple(map(lambda x: int(x), (sign_bin, exponent_bin, mantissa_bin)))
+    #    exponent = biased_exponent - cls._bias()
+    #    return cls(sign, exponent, mantissa)
+    def compose(self, sign_bin: 'bit', exponent_bin: 'bit', mantissa_bin: 'bit') -> Self:
         """
         From hardware output
         """
         sign, biased_exponent, mantissa = tuple(map(lambda x: int(x), (sign_bin, exponent_bin, mantissa_bin)))
-        exponent = biased_exponent - cls._bias()
-        return cls(sign, exponent, mantissa)
+        exponent = biased_exponent - self.fp_int._config.bias
+        #return self.__class__(sign, exponent, mantissa, self.fp_int._config)
+        return self.__class__(sign, exponent, mantissa)
 
-    @classmethod
-    def from_float(cls, fp: float) -> Self:
-        bf16_bias = cls._bias()
-        bf16_sign, bf16_exp_before_bias, fp32_mant = util.decomp_fp32(float(fp))
-        bf16_exp, bf16_mant = util.round_and_postnormalize(bf16_exp_before_bias, fp32_mant, 23, 7)
-        bf16_exp = bf16_exp - bf16_bias
-        return cls(bf16_sign, bf16_exp, bf16_mant)
+    @abstractmethod
+    def to_float(self) -> float:
+        pass
 
-    @classmethod
-    def from_hex(cls, h: int) -> Self:
-        sign = h >> (cls._sign_bitpos - 1)
-        exp_bit_msb = cls._sign_bitpos - 1
-        exp_bit_lsb = cls._sign_bitpos - 1 - cls._exponent_bits
-        exp_mask = ((1 << exp_bit_msb) - 1) - ((1 << exp_bit_lsb) -1)
-        exponent = ((h & exp_mask) >> (cls._sign_bitpos - 1 - cls._exponent_bits)) - cls._bias()
-        mant_mask = cls._mant_max()
-        mantissa = h & mant_mask
-        return cls(sign, exponent, mantissa)
-    
+    # Representation
+    def __float__(self):
+        if self.iszero():
+            float_repr = 0.0
+        elif self.isnan():
+            float_repr = float('nan')
+        elif self.isinf() and self.fp_int.sign == 0:
+            float_repr = float('inf')
+        elif self.isinf() and self.fp_int.sign == 1:
+            float_repr = float('-inf')
+        else:
+            float_repr = self.to_float()
+        return float_repr
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(sign = {self.fp_int.sign}, exponent={self.fp_int.exponent}, mantissa={self.fp_int.mantissa})"
+
+    @staticmethod
+    def _validate_operands_to_mod(*ops, mod_structure: Dict[int, Tuple[Tuple[Type, ...], Type]]) -> int:
+        '''
+        mod_structure: {mod: ((input, ...), result), ...}
+        fma_mod = {0: ((bf16, bf16, bf16), bf16), 1: ((bf16, bf16, fp32), fp32), 2: ((fp32, fp32, fp32), fp32)}
+        '''
+        mod: int = next((key for key, value in mod_structure.items() if tuple(map(type, ops)) == value[0]), -1)
+        if mod == -1:
+            raise FloatTypeError('TYPE_MISMATCH', value = (ops, tuple(map(lambda x: type(x), ops))), expected_type=mod_structure.values())
+        return mod
+
     # Operations in HW component
+    def _perform_sigle_operand_operation(self, op_class: Type) -> Self:
+        a_bit: FPBitT = self.decompose()
+        perform_op = op_class(a_bit)    # I don't want to annotate... This is hw_model classes
+        result_bit = perform_op.excute()
+        result = self.compose(result_bit[0], result_bit[1], result_bit[2])
+        return result
+    
+    def _perform_two_operand_operation(self, other: Self, op_class: Type) -> Self:
+        self._validate_operands_to_mod(self, other, mod_structure = {0: ((Bfloat16, Bfloat16), Bfloat16), 1: ((Float32, Float32), Float32)})
+        bf16_input = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
+        if bf16_input:
+            self_fp32 = bf16_to_fp32(self)
+            other_fp32 = bf16_to_fp32(other)
+        else:
+            self_fp32 = self
+            other_fp32 = other
+        a_bit: FPBitT = self_fp32.decompose()
+        b_bit: FPBitT = other_fp32.decompose()
+        perform_op = op_class(a_bit, b_bit)    # I don't want to annotate... This is hw_model classes
+        result_bit = perform_op.excute()
+        fp32 = Float32(0, 0, 0)
+        result_fp32 = fp32.compose(result_bit[0], result_bit[1], result_bit[2])
+        bf16_output = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
+        if bf16_output:
+            result = fp32_to_bf16(result_fp32)
+        else:
+            result = result_fp32
+        return result
+
     def __add__(self, other: Self) -> Self:
-        if not isinstance(other, FloatBase):
-            raise FloatTypeError("Both operands should be FloatBase objects.")
-        if type(self) is not type(other):
-            raise FloatTypeError("Both operands should be of the same type.")
-        addition = Add(self, other)
-        return addition.add()
+        return self._perform_two_operand_operation(other, hw_model.Add)
+
+    def __sub__(self, other: Self) -> Self:
+        return self + (-other)
 
     def __mul__(self, other: Self) -> Self:
-        if not isinstance(other, FloatBase):
-            raise FloatTypeError("Both operands should be FloatBase objects.")
-        if type(self) is not type(other):
-            raise FloatTypeError("Both operands should be of the same type.")
-        multiplication = Mul(self, other)
-        return multiplication.multiply()
+        return self._perform_two_operand_operation(other, hw_model.Mul)
 
-    @classmethod
-    def fma(cls, a: Self, b: Self, c: Self) -> Self:
-        if not isinstance(a or b or c, FloatBase):
-            raise FloatTypeError("Three of operands should be FloatBase objects.")
-        if not (type(a) == type(b) == type(c)):
-            raise FloatTypeError("Three of operands should be of the same type.")
-        fma = Fma(a, b, c)
-        return fma.fma()
-    
-    '''
-    @classmethod
-    def mru(cls, input_vector, weight_vector) -> Self:
-        for v in input_vector:
-            if not isinstance(v, FloatBase):
-                raise FloatTypeError("All input vector operands should be FloatBase objects.")
-        for v in weight_vector:
-            if not isinstance(v, FloatBase):
-                raise FloatTypeError("All weight vector operands should be FloatBase objects.")
-        mru = MRU(input_vector, weight_vector)
-        return MRU.summation()
-    '''
-    
-    @classmethod
-    #def summation(cls: Type[FloatBaseT], vector_list: List[List[FloatBaseT]]) -> 'Float32':
-    def summation(cls: Type[Self], vector_list: List[List[Self]]) -> 'Float32':
-        '''
-        Vector format:
-        [[vector 0], [vector 1], ..., [vector n]]
-        Result:
-        reduce_sum(vector 0, vector 1, ..., vector n)
-        '''
-        for vl in vector_list:
-            for v in vl:
-                if not isinstance(v, FloatBase):
-                    raise FloatTypeError("All input vector operands should be FloatBase objects.")
-        # Convert to FP32
-        if cls == Bfloat16:
-            fp32_vector_list = [[cls.bf16_to_fp32(v) for v in vl] for vl in vector_list]
-        elif cls == Float32:
-            fp32_vector_list = [[v for v in vl] for vl in vector_list]
-        else:
-            raise FloatTypeError('Summation should be for FloatBase')
-        summation = Summation(fp32_vector_list)
-        summation.set_acc(cls(0, -127, 0))
-        for v in summation.vector_list:
-            summation.set_vector(v)
-            acc = summation.summation()
-            summation.set_acc(acc)
-        return summation.acc
+    @abstractmethod
+    def fma(cls, a, b, c):
+        pass
 
-    # from_blahblah method
-    # ex) from_fp32, from_fp64
-    # ex) to_fp32, to_fp64
+    @abstractmethod
+    def summation(cls, vector_list, mod):
+        pass
 
     def __int__(self) -> int:
         # extract integer part
@@ -260,7 +206,7 @@ class FloatBase(metaclass=ABCMeta):
     def fptoint(self) -> int:
         # HW component
         # Exists in fpmiscop
-        fptoint_obj = FPtoInt(self)
+        fptoint_obj = hw_model.FPtoInt(self)
         return fptoint_obj.fptoint()
     
     @classmethod
@@ -270,44 +216,28 @@ class FloatBase(metaclass=ABCMeta):
     def pow(self, n: int) -> Self:
         if not isinstance(n, int):
             raise FloatTypeError("Operand of power of 2 should be integer number.")
-        pow = Pow(self, n)
+        pow = hw_model.Pow(self, n)
         return pow.power()
     
     def __neg__(self) -> 'FloatBase':
-        neg = Neg(self)
+        neg = hw_model.Neg(self)
         return neg.negative()
 
-    @abstractmethod
-    def to_float(self) -> float:
-        pass
-
-    def bf16_to_fp32(self) -> 'Float32':
+    # Factory method
+    @classmethod
+    def create_instance(cls, sign: int, exponent: int, mantissa: int, config: Optional[_FPConfig] = None) -> Self:
+        if cls == Bfloat16:
+            return cls(sign, exponent, mantissa, _bf16_config)
+        elif cls == Float32:
+            return cls(sign, exponent, mantissa, _fp32_config)
+        else:
             raise NotImplementedError("This method should be implemented by subclasses if needed")
 
-    def fp32_to_bf16(self) -> 'Bfloat16':
-            raise NotImplementedError("This method should be implemented by subclasses if needed")
 
     #@abstractmethod
     #def to_tftype(self): # type: ignore
     #    pass
 
-    # Representation
-    def __float__(self):
-        if self.iszero():
-            float_repr = 0.0
-        elif self.isnan():
-            float_repr = float('nan')
-        elif self.isinf() and self.sign == 0:
-            float_repr = float('inf')
-        elif self.isinf() and self.sign == 1:
-            float_repr = float('-inf')
-        else:
-            float_repr = self.to_float()
-        return float_repr
-
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(sign = {self.sign}, exponent={self.exponent}, mantissa={self.mantissa})"
 
 class Bfloat16(FloatBase):
     """
@@ -330,13 +260,8 @@ class Bfloat16(FloatBase):
      - Need improve
     all raise statements can go to Bfloat16Error class
     """
-
-    _sign_bitpos = 16
-    _exponent_bits = 8
-    _mantissa_bits = 7
-
-    def __init__(self, sign: int, exponent: int, mantissa: int) -> None:
-        super().__init__(sign, exponent, mantissa, self._sign_bitpos, self._exponent_bits, self._mantissa_bits)
+    def __init__(self, sign: int, exponent: int, mantissa: int, config: _FPConfig = _bf16_config) -> None:
+        super().__init__(sign, exponent, mantissa, _bf16_config)
     
     @classmethod
     def inttofp(cls, i: int) -> Self:
@@ -344,25 +269,73 @@ class Bfloat16(FloatBase):
         # Exists in fpmiscop
         # Assuming 32-bit integer
         if (len(bin(i))-2) > 32:
-            raise FloatTypeError("FloatBase inttofp accepts only 32-bit integer")
-        inttofp_obj = InttoFP[Bfloat16](i, 0)
+            raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
+        inttofp_obj = hw_model.InttoFP[Bfloat16](i, 0)
         return inttofp_obj.inttofp()
-    
+
+    def from_float(self, fp: float) -> Self:
+        sign, exp_before_bias, mant = self._from_float_pre_cal(fp)
+        bf16_exp, bf16_mant = util.round_and_postnormalize(exp_before_bias, mant, _fp32_config.mantissa_bits, _bf16_config.mantissa_bits)
+        bf16_exp = bf16_exp - self.fp_int._config.bias
+        return self.__class__(sign, bf16_exp, bf16_mant)
+
     def to_float(self) -> float:
-        f_int: int = util.convert_float_int(self.sign, self.exponent, self.mantissa)
+        f_int: int = util.convert_float_int(self.fp_int.sign, self.fp_int.exponent, self.fp_int.mantissa)
         f: float = util.hex64_to_double(util.int64_to_hex(f_int))
         return f
 
     def bf16_to_tfbf16(self) -> tfbfloat16:
         return util.float_to_tfbf16(float(self))
-    
-    def bf16_to_fp32(self) -> 'Float32':
-        """
-        FIX: Bfloat16 -> Float32
-        """
-        bf16tofp32 = BF16toFP32(self)
-        return bf16tofp32.bf16_to_fp32()
-    
+
+    @classmethod
+    def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16') -> 'Bfloat16':
+        # mod 0: a, b = bf16, c = bf16
+        if not isinstance(a or b or c, cls):
+            raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type=type(cls))
+        a_input = bf16_to_fp32(a)
+        b_input = bf16_to_fp32(b)
+        c_input = bf16_to_fp32(c)
+        a_bit: Tuple[bit, bit, bit] = a_input.decompose()
+        b_bit: Tuple[bit, bit, bit] = b_input.decompose()
+        c_bit: Tuple[bit, bit, bit] = c_input.decompose()
+        fma = hw_model.Fma(a_bit, b_bit, c_bit)
+        result_bit = fma.excute()
+        result = Float32(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        result = fp32_to_bf16(result)
+        return result
+
+    @classmethod
+    def summation(cls: Type[Self], vector_list: List[List[Self]], mod = 3) -> 'Bfloat16':
+        #        vector input   scalar input   output
+        # mod 0: fp32, fp32, fp32
+        # mod 1: bf16, bf16, fp32
+        # mod 2: bf16, fp32, fp32
+        # mod 3: bf16, bf16, bf16
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, cls):
+                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+        # initialize accumulator
+        acc = cls(0, 0, 0)
+        # Convert to FP32
+        fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        acc_bit = acc.decompose()
+        for v in fp32_vector_list:
+            vector_bit = [e.decompose() for e in v]
+            summation = hw_model.Summation(vector_bit, acc_bit)
+            acc_bit = summation.excute()
+            summation.set_acc(acc_bit)
+        result = Float32(0, 0, 0)
+        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+        result = fp32_to_bf16(result)
+        return result
 
 
 class Float32(FloatBase):
@@ -381,13 +354,8 @@ class Float32(FloatBase):
     +, x, FMA, negative, 2^n(n is integer, such as times 2, 1/2, 1/4 ...), summation(get n Bfloat16 and adder tree. variable align shift)
     Conversion(FP32toInt, InttoFP32) -> floor, ceiling
     """
-
-    _sign_bitpos = 32
-    _exponent_bits = 8
-    _mantissa_bits = 23
-
     def __init__(self, sign: int, exponent: int, mantissa: int) -> None:
-        super().__init__(sign, exponent, mantissa)
+        super().__init__(sign, exponent, mantissa, _fp32_config)
     
     @classmethod
     def inttofp(cls, i: int) -> Self:
@@ -395,35 +363,121 @@ class Float32(FloatBase):
         # Exists in fpmiscop
         # Assuming 32-bit integer
         if (len(bin(i))-2) > 32:
-            raise FloatTypeError("FloatBase inttofp accepts only 32-bit integer")
-        inttofp_obj = InttoFP[Float32](i, 1)
+            raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
+        inttofp_obj = hw_model.InttoFP[Float32](i, 1)
         return inttofp_obj.inttofp()
+
+    def from_float(self, fp: float) -> Self:
+        sign, exp_before_bias, mant = self._from_float_pre_cal(fp)
+        exp = exp_before_bias - self.fp_int._config.bias
+        return self.__class__(sign, exp, mant)
     
     def to_float(self) -> float:
-        float_int = util.convert_float_int(self.sign, self.exponent, self.mantissa, 63, 11, 52, 23)
+        float_int = util.convert_float_int(self.fp_int.sign, self.fp_int.exponent, self.fp_int.mantissa, 
+                                           (_fp64_config.sign_bitpos-1), _fp64_config.exponent_bits, _fp64_config.mantissa_bits, _fp32_config.mantissa_bits)
         float = util.hex64_to_double(util.int64_to_hex(float_int))
         return float
 
     def fp32_to_tffp32(self) -> tffloat32:
         return util.float_to_tffp32(float(self))
-    
-    def fp32_to_bf16(self) -> 'Bfloat16':
-        """
-        FIX: Float32 to Bfloat16
-        """
-        fp32tobf16 = FP32toBF16(self)
-        return fp32tobf16.fp32_to_bf16()
+
+    @classmethod
+    def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32') -> Union['Bfloat16', 'Float32']:
+        # mod 1: a, b = bf16, c = fp32
+        # mod 2: a, b = fp32, c = fp32
+        mod_1 = isinstance(a, Bfloat16) & isinstance(b, Bfloat16) & isinstance(c, Float32)
+        mod_2 = isinstance(a, Float32) & isinstance(b, Float32) & isinstance(c, Float32)
+        if not mod_1 and not mod_2:
+            raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type='bf16/fp32, bf16/fp32, fp32')
+        if mod_1:
+            a_input = bf16_to_fp32(a)
+            b_input = bf16_to_fp32(b)
+            c_input = c
+        else:
+            a_input = a
+            b_input = b
+            c_input = c
+        a_bit: Tuple[bit, bit, bit] = a_input.decompose()
+        b_bit: Tuple[bit, bit, bit] = b_input.decompose()
+        c_bit: Tuple[bit, bit, bit] = c_input.decompose()
+        fma = hw_model.Fma(a_bit, b_bit, c_bit)
+        result_bit = fma.excute()
+        result = Float32(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        return result
+
+    @classmethod
+    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], mod = 0) -> Union['Bfloat16', 'Float32']:
+        #        vector input   scalar input   output
+        # mod 0: fp32, fp32, fp32
+        # mod 1: bf16, bf16, fp32
+        # mod 2: bf16, fp32, fp32
+        # mod 3: bf16, bf16, bf16
+        '''
+        Vector format:
+        [[vector 0], [vector 1], ..., [vector n]]
+        Result:
+        reduce_sum(vector 0, vector 1, ..., vector n)
+        '''
+        for vl in vector_list:
+            for v in vl:
+                if not isinstance(v, cls):
+                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+        acc = cls(0, 0, 0)
+        if mod == 0:
+        # initialize accumulator
+            fp32_vector_list: List[List[Self]] = vector_list
+        elif mod == 1:
+            # Convert to FP32
+            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        elif mod == 2:
+            # Convert to FP32
+            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        else:
+            raise FloatTypeError('INVALID_MOD', value = mod)
+        #acc_fp32_bit = acc_fp32.decompose()
+        for v in fp32_vector_list:
+            if mod == 0 or mod == 2:
+                # convert acc to bf16 for rounding
+                acc = fp32_to_bf16(acc)
+                # re-convert acc to fp32
+                acc = bf16_to_fp32(acc)
+            elif mod == 1:
+                acc = acc
+            acc_bit = acc.decompose()
+            vector_bit = [e.decompose() for e in v]
+            summation = hw_model.Summation(vector_bit, acc_bit)
+            acc_bit = summation.excute()
+            summation.set_acc(acc_bit)
+        result = Float32(0, 0, 0)
+        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+        return result
+
+# Converter function
+def bf16_to_fp32(bf16: Bfloat16) -> Float32:
+    """
+    Bfloat16 -> Float32
+    """
+    a_bit: FPBitT = bf16.decompose()
+    bf16tofp32 = hw_model.BF16toFP32(a_bit)
+    result_bit = bf16tofp32.excute()
+    result = Float32(0, 0, 0)
+    result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+    return result
+
+# converter function
+def fp32_to_bf16(fp32: Float32) -> Bfloat16:
+    """
+    FIX: Float32 to Bfloat16
+    """
+    a_bit: FPBitT = fp32.decompose()
+    fp32tobf16 = hw_model.FP32toBF16(a_bit)
+    result_bit = fp32tobf16.excute()
+    result = Bfloat16(0, 0, 0)
+    result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+    return result
+
 
     # from_blahblah method
     # ex) from_fp32, from_fp64
     # ex) to_fp32, to_fp64
-
-    
-class FloatTypeError(Exception):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-
-
-class FloatValueError(Exception):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)

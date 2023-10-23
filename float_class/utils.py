@@ -76,6 +76,9 @@ def convert_float_int(s: int, e: int, f: int, sign_bitpos: int = 63, exp_bits: i
     
 def bf16_ulp_dist(a: float, b: float) -> int:
     return abs((fp32_cast_int(a)>>16) - (fp32_cast_int(b)>>16))
+    
+def fp32_ulp_dist(a: float, b: float) -> int:
+    return abs((fp32_cast_int(a)) - (fp32_cast_int(b)))
 
 def float_to_tfbf16(x: float) -> tf.bfloat16: # type: ignore
     """_summary_

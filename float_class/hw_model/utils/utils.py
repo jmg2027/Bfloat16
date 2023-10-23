@@ -1,7 +1,9 @@
 from typing import List, TypeVar, Union
 from .commonimport import *
+from float_class.floatint import _FPConfig
 
 BitT = TypeVar('BitT', bound='bit')
+FPBitT = Tuple[bit, bit, bit]
 '''
 def radix_4_booth_encoder(bin: str) -> List:
     """
@@ -70,5 +72,34 @@ def round_to_nearest_even_bit(bit: BitT, round_width: int) -> BitT:
 def leading_zero_count(bit: Union['bit', 'sbit', 'ubit']) -> int:
     # If there's no 1 in bit, return zero indicator: 256
     if '1' not in bit.bin:
-        return (1 << bf16_obj.exponent_bits)
+        return (1 << bf16_config.exponent_bits)
     return (bit.bin+'1').index('1')
+
+def check_config_str(ftype: str) -> _FPConfig:
+    if ftype == 'bf16':
+        return bf16_config
+    elif ftype == 'fp32':
+        return fp32_config
+    else:
+        raise TypeError(f"Input type should be bf16 or fp32. Current input: {ftype}")
+
+# Assume fp32
+def isnan(fp_bit: FPBitT, ftype = 'fp32') -> bool:
+    config = check_config_str(ftype)
+    s, e, m = fp_bit
+    return int(e) == config.exp_max and int(m) != 0
+
+def isden(fp_bit: FPBitT, ftype = 'fp32') -> bool:
+    config = check_config_str(ftype)
+    s, e, m = fp_bit
+    return int(e) == 0 - config.bias and int(m) != 0
+
+def iszero(fp_bit: FPBitT, ftype = 'fp32') -> bool:
+    config = check_config_str(ftype)
+    s, e, m = fp_bit
+    return int(e) == 0 - config.bias
+
+def isinf(fp_bit: FPBitT, ftype = 'fp32') -> bool:
+    config = check_config_str(ftype)
+    s, e, m = fp_bit
+    return int(e) == config.exp_max and int(m) == 0
