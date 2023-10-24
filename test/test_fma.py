@@ -67,11 +67,10 @@ class TestFMA(TestOperationBase):
         tf_operand = tf_operand_input + tuple(tf_operand_output)
         tfres = self.tf_operation(*tf_operand)
         
-        #if check_float_equal(res, tfres):
-        if check_float_equal:
+        if check_float_equal(res, tfres):
             test_res_str = f'PASSED {self.op}{input}, res: {res}'
         else:
-            test_res_str = f'FAILED {self.op}{input}, bf16: {res}, tfbf16: {tfres}'
+            test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}'
         print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
@@ -89,6 +88,16 @@ class TestFMA(TestOperationBase):
                 fail_list.append(test_res_str)
         check_fail_list(fail_list)
         return test_list
+
+    # override
+    def test(self):
+        fail_list = []
+        for v in self.test_set:
+            (a, b, c), fp32_res, test_res_str = self.test_body(v)
+            if check_fail_status(test_res_str):
+                fail_list.append(test_res_str)
+        check_fail_list(fail_list)
+        return
 
     # this method should be defined in subclasses
     def _check_test_set(self, test_set: list) -> bool:
