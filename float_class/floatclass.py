@@ -139,7 +139,7 @@ class FloatBase(metaclass=ABCMeta):
         return float_repr
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(sign = {self.fp_int.sign}, exponent={self.fp_int.exponent}, mantissa={self.fp_int.mantissa})"
+        return f"{self.__class__.__name__}({float(self)}, sign = {self.fp_int.sign}, exponent={self.fp_int.exponent}, mantissa={self.fp_int.mantissa})"
 
     @staticmethod
     def _validate_operands_to_mod(*ops, mod_structure: Dict[int, Tuple[Tuple[Type, ...], Type]]) -> int:
@@ -204,10 +204,13 @@ class FloatBase(metaclass=ABCMeta):
         return int(float(self))
     
     def fptoint(self) -> int:
-        # HW component
-        # Exists in fpmiscop
-        fptoint_obj = hw_model.FPtoInt(self)
-        return fptoint_obj.fptoint()
+        if isinstance(self, Bfloat16):
+            fp32_input = bf16_to_fp32(self)
+        else:
+            fp32_input = self
+        fp32_bit = fp32_input.decompose()
+        fptoint_obj = hw_model.FPtoInt(fp32_bit)
+        return fptoint_obj.excute()
     
     @classmethod
     def inttofp(cls, i: int) -> None:
@@ -216,12 +219,36 @@ class FloatBase(metaclass=ABCMeta):
     def pow(self, n: int) -> Self:
         if not isinstance(n, int):
             raise FloatTypeError("Operand of power of 2 should be integer number.")
-        pow = hw_model.Pow(self, n)
-        return pow.power()
+        if isinstance(self, Bfloat16):
+            fp32_input = bf16_to_fp32(self)
+        else:
+            fp32_input = self
+        fp32_bit = fp32_input.decompose()
+        pow = hw_model.Pow(fp32_bit, n)
+        result_bit = pow.excute()
+        result_fp32 = Float32(0, 0, 0)
+        result_fp32 = result_fp32.compose(result_bit[0], result_bit[1], result_bit[2])
+        if isinstance(self, Bfloat16):
+            result = fp32_to_bf16(result_fp32)
+        else:
+            result = result_fp32
+        return result
     
     def __neg__(self) -> 'FloatBase':
-        neg = hw_model.Neg(self)
-        return neg.negative()
+        if isinstance(self, Bfloat16):
+            fp32_input = bf16_to_fp32(self)
+        else:
+            fp32_input = self
+        fp32_bit = fp32_input.decompose()
+        neg = hw_model.Neg(fp32_bit)
+        result_bit = neg.excute()
+        result_fp32 = Float32(0, 0, 0)
+        result_fp32 = result_fp32.compose(result_bit[0], result_bit[1], result_bit[2])
+        if isinstance(self, Bfloat16):
+            result = fp32_to_bf16(result_fp32)
+        else:
+            result = result_fp32
+        return result
 
     # Factory method
     @classmethod
@@ -268,10 +295,15 @@ class Bfloat16(FloatBase):
         # HW component
         # Exists in fpmiscop
         # Assuming 32-bit integer
+        if not isinstance(i, int):
+            raise FloatTypeError("InttoFP input should be integer number.")
         if (len(bin(i))-2) > 32:
             raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
-        inttofp_obj = hw_model.InttoFP[Bfloat16](i, 0)
-        return inttofp_obj.inttofp()
+        inttofp_obj = hw_model.InttoFP(i, 0)
+        result_bit = inttofp_obj.excute()
+        result = cls(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        return result
 
     def from_float(self, fp: float) -> Self:
         sign, exp_before_bias, mant = self._from_float_pre_cal(fp)
@@ -362,10 +394,15 @@ class Float32(FloatBase):
         # HW component
         # Exists in fpmiscop
         # Assuming 32-bit integer
+        if not isinstance(i, int):
+            raise FloatTypeError("InttoFP input should be integer number.")
         if (len(bin(i))-2) > 32:
             raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
-        inttofp_obj = hw_model.InttoFP[Float32](i, 1)
-        return inttofp_obj.inttofp()
+        inttofp_obj = hw_model.InttoFP(i, 1)
+        result_bit = inttofp_obj.excute()
+        result = cls(0, 0, 0)
+        result = result.compose(result_bit[0], result_bit[1], result_bit[2])
+        return result
 
     def from_float(self, fp: float) -> Self:
         sign, exp_before_bias, mant = self._from_float_pre_cal(fp)
