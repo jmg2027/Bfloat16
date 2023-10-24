@@ -1,53 +1,111 @@
-from float_class import bf16, fp32, bf16_to_fp32, fp32_to_bf16, bf16_obj, fp32_obj
+import numpy as np
+import tensorflow as tf
+
+from float_class import bf16, fp32
+
+import test
+import test.utils
+import float_class.floatopwrap as opwrap
+
+# delete opwrap
+# make test auto convert to each types by its mod value
+# summation has its own mod in floatclass
+
+from typing import (
+    Union,
+    Type,
+    TypeVar,
+    List,
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Optional
+    )
 
 
-A = bf16(1, -10, 100)
-B = bf16(0, 5, 35)
-print(A + B)
+from test.utils import FloatBaseT
 
-A = bf16_obj.from_float(-1.32)
-B = bf16_obj.from_float(3.156)
-print(A + B)
 
-D = fp32_obj.from_float(6.871)
-E = fp32_obj.from_float(-10.235)
-F = fp32_obj.from_float(0.00640869)
-#print(D * E)
-#D = fp32_obj.from_float(1.0)
-#E = fp32_obj.from_float(2.0)
-#F = fp32_obj.from_float(-4.0)
-#D = bf16_obj.from_float(6.871)
-#E = bf16_obj.from_float(-10.235)
-#F = bf16_obj.from_float(0.00640869)
-#print(D)
-#print(E)
-#print(F)
-#print(fp32.fma(D, E, F))
+# make test as new class and define each operations with it
+# such as: 
+# def test(op, ftype):
+# if op == 'mul':
+# t = test.test_class.T(mul, ftype)
+# t.test()
 
-bf16(1, 0, 127) + bf16_obj.from_hex(0x4060)
-fp32_obj.from_float(-1.5) + fp32(0, 1, 0)
-bf16_obj.from_float(2.0).__add__(bf16_obj.from_float(12.0))
+def test_mul(mod = 0):
+    t = test.test_mul.TestMul(mod)
+    t.test()
 
-bf16.fma(bf16(1, 0, 127), bf16_obj.from_hex(0x4060), bf16_obj.from_float(-12))
-fp32.fma(bf16(1, 0, 127), bf16_obj.from_hex(0x4060), fp32_obj.from_float(-12))
-fp32.fma(fp32_obj.from_float(1.0), fp32_obj.from_hex(0x40000000), fp32(1, 3, 7906263))
+def test_add(mod = 0):
+    t = test.test_add.TestAdd(mod)
+    t.test()
 
-bf16(0, 1, 100).pow(3)
-fp32_obj.from_float(0.001).pow(10)
+def test_fma(mod = 0):
+    t = test.test_fma.TestFMA(mod)
+    t.test()
 
--bf16(0, -10, 15)
-fp32_obj.from_hex(0x41f00000).__neg__()
+def test_summation(mod = 0):
+    t = test.test_summation.TestSummation(mod)
+    t.test()
 
-bf16(0, 2, 84).fptoint()
-fp32_obj.from_float(0.05896311).fptoint()
+def test_fptoint():
+    test.test_fptoint.test()
 
-bf16.inttofp(300)
-fp32.inttofp(-24690)
+def test_inttofp():
+    test.test_inttofp.test()
 
-bf16_to_fp32(bf16(0, 21, 46))
+def test_rand_mul(times = 1000, mod = 0):
+    t = test.test_mul.TestMul(mod)
+    t.rand_test(times)
+    return
 
-fp32_to_bf16(fp32(0, -10, 461500))
+def test_rand_add(times = 1000, mod = 0):
+    t = test.test_add.TestAdd(mod)
+    t.rand_test(times)
+    return
 
-bf16(1, 0, 127) * bf16_obj.from_hex(0x4060)
-fp32_obj.from_float(-1.5) * fp32(0, 1, 0)
-bf16_obj.from_float(2.0).__mul__(bf16_obj.from_float(12.0))
+def test_rand_fma(times = 1000, mod = 0):
+    t = test.test_fma.TestFMA(mod)
+    t.rand_test(times)
+    return
+
+def test_rand_summation(times = 1000, mod = 0):
+    t = test.test_summation.TestSummation(mod)
+    t.rand_test(times)
+    return
+
+def test_rand_fptoint(times = 1000):
+    test.test_fptoint.rand_test(times)
+
+def test_rand_inttofp(times = 1000):
+    test.test_inttofp.rand_test(times)
+
+if __name__ == "__main__":
+#    test_mul(mod = 0)
+#    test_mul(mod = 1)
+#    test_add(mod = 0)
+#    test_add(mod = 1)
+#    test_fma(mod = 0)
+#    test_fma(mod = 1)
+    test_fma(mod = 2)
+#    test_summation(mod = 0)
+#    test_summation(mod = 1)
+#    test_summation(mod = 2)
+#    test_summation(mod = 3)
+#    test_fptoint()
+#    test_inttofp()
+#    test_rand_mul(mod = 0)
+#    test_rand_mul(mod = 1)
+#    test_rand_add(mod = 0)
+#    test_rand_add(mod = 1)
+#    test_rand_fma(mod = 0)
+#    test_rand_fma(mod = 1)
+#    test_rand_fma(mod = 2)
+#    test_rand_summation(mod = 0)
+#    test_rand_summation(mod = 1)
+#    test_rand_summation(mod = 2)
+#    test_rand_summation(mod = 3)
+#    test_rand_fptoint()
+#    test_rand_inttofp()
