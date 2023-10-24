@@ -28,7 +28,7 @@ def test_inttofp(num: int):
     if check_float_equal(bf16_res, tfbf16_res):
         test_res_str = f'PASSED {num}'
     else:
-        test_res_str = f'FAILED {num}.inttofp(), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
+        test_res_str = f'FAILED {num}.inttofp(), lib: {bf16_res}, tf: {tfbf16_res}'
     print(test_res_str)
     return test_res_str
 
