@@ -87,19 +87,19 @@ def check_config_str(ftype: str) -> _FPConfig:
 def isnan(fp_bit: FPBitT, ftype = 'fp32') -> bool:
     config = check_config_str(ftype)
     s, e, m = fp_bit
-    return int(e) == config.exp_max and int(m) != 0
+    return int(e) == config.exp_max + config.bias and int(m) != 0
 
 def isden(fp_bit: FPBitT, ftype = 'fp32') -> bool:
     config = check_config_str(ftype)
     s, e, m = fp_bit
-    return int(e) == 0 - config.bias and int(m) != 0
+    return int(e) == 0 and int(m) != 0
 
 def iszero(fp_bit: FPBitT, ftype = 'fp32') -> bool:
     config = check_config_str(ftype)
     s, e, m = fp_bit
-    return int(e) == 0 - config.bias
+    return int(e) == 0
 
 def isinf(fp_bit: FPBitT, ftype = 'fp32') -> bool:
     config = check_config_str(ftype)
     s, e, m = fp_bit
-    return int(e) == config.exp_max and int(m) == 0
+    return int(e) == config.exp_max + config.bias and int(m) == 0
