@@ -133,10 +133,3 @@ class FloatMultiplication:
         ret_mant = ret_mant_3
 
         return ret_sign, ret_exp, ret_mant
-
-        # Compose BF16
-        mul = fp32_int.compose(ret_sign, ret_exp_bit_1, ret_mant_3)
-        # If input is Bfloat16, fp32_to_bf16
-        if bf16_input:
-            mul = mul.fp32_to_bf16()
-        return mul
