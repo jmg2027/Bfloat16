@@ -58,7 +58,7 @@ def cast_float(frepr: TestInputT, \
         return ftype_obj.from_hex(frepr & 0xFFFF_FFFF)
     elif isinstance(frepr, int) &  (ftype == bf16):
         # integer/hex repr
-        return ftype_obj.from_hex(frepr & 0xFFFF)
+        return ftype_obj.from_hex(frepr & 0xFFFF_0000 >> 16)
     elif isinstance(frepr, float):
         # python float repr
         return ftype_obj.from_float(frepr)
