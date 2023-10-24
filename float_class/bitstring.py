@@ -118,8 +118,10 @@ class BitString:
             raise BitStrTypeError('INVALID_INDEX', (self, index))
 
     # Operations
+    # BitString/UnsignedBitString only applies zero extend
     def _sign_extend(self, new_width: int, value: str) -> str:
-        sign_extension: str = self.bin[0] * (new_width - len(value))
+        #sign_extension: str = self.bin[0] * (new_width - len(value))
+        sign_extension: str = '0' * (new_width - len(value))
         return sign_extension + value
 
     def _apply_extension(self, other: Self, operation: Callable[[Self, Self], Self], result_bitwidth: int) -> Self:
