@@ -22,7 +22,6 @@ class FloatAddition:
         ret_exp_0 : bit = bit(1, '0')
         ret_mant_0: bit = bit(1, '0')
         
-
         # Special cases
         #input
         isnormal = False
