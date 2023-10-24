@@ -98,14 +98,14 @@ class FloatFMA:
                 p_mant_us.__ilshift__(1)
 
                 
-            #print('c_exp_signed:',c_exp_signed)
-            #print('c_exp_signed:',p_exp_signed)
+            #print('c_exp_signed:',int(c_exp_signed))
+            #print('p_exp_signed:',int(p_exp_signed))
             # Exponent difference
             exp_diff = c_exp_signed - p_exp_signed
             exp_diff_abs = abs(int(exp_diff))
 
             # Set flags
-            #print('exp_diff', exp_diff)
+            #print('exp_diff', int(exp_diff))
             c_exp_gt_p = exp_diff > sbit(1, '0')
             c_exp_eq_p = exp_diff == sbit(1, '0')
             c_mant_gt_p = (c_mant_us.concat(ubit(precision_bit, '0'))) >= p_mant_us
@@ -279,9 +279,9 @@ class FloatFMA:
             #print('exp 1', repr(ret_exp_1))
             #print('exp 2', repr(ret_exp_2))
 
-            #print('exp 0', hex(int(ret_exp_0)))
-            #print('exp 1', hex(int(ret_exp_1)))
-            #print('exp 2', hex(int(ret_exp_2)))
+            #print('exp 0', (int(ret_exp_0)))
+            #print('exp 1', (int(ret_exp_1)))
+            #print('exp 2', (int(ret_exp_2)))
 
             #print('mant 0', repr(ret_mant_0))
             #print('mant 1', repr(ret_mant_1))
