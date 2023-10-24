@@ -19,10 +19,10 @@ test_set = [
     10.34,
     100.0000001,
     100.9999999,
-    32767,
-    32768,
-    -32768,
-    -32769,
+    32767.0,
+    32768.0,
+    -32768.0,
+    -32769.0,
 ]
 
 
@@ -34,8 +34,8 @@ def test_fptoint(fp: float):
     tfbf16_res = convert_tfbf16_to_int(tfa)
 
     # debug
-    print('bf16', bf16_res)
-    print('tfbf16', tfbf16_res)
+    #print('bf16', bf16_res)
+    #print('tfbf16', tfbf16_res)
     
     if bf16_res == tfbf16_res:
         test_res_str = f'PASSED {a}'
