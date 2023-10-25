@@ -473,7 +473,6 @@ class Float32(FloatBase):
                     if not isinstance(v, Bfloat16):
                         raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
         result = Float32(0, 0, 0)
-        print(mod)
         if mod == 0:
             acc = cls(0, 0, 0)
         elif mod == 1:
