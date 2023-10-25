@@ -466,9 +466,14 @@ class Float32(FloatBase):
         '''
         for vl in vector_list:
             for v in vl:
-                if not isinstance(v, cls):
-                    raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+                if mod == 0:
+                    if not isinstance(v, cls):
+                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+                else:
+                    if not isinstance(v, Bfloat16):
+                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
         result = Float32(0, 0, 0)
+        print(mod)
         if mod == 0:
             acc = cls(0, 0, 0)
         elif mod == 1:
