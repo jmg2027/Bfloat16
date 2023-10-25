@@ -8,6 +8,8 @@ bf16_mant_max = float(bf16(0, 0, 127))
 # Match vector_element_num to FloatSummation.vector_element_num
 #vector_element_num = 64
 vector_element_num = 32
+rand_vector_num = 2
+
 
 class TestSummation(TestOperationBase):
     #test_set = [
@@ -174,15 +176,13 @@ class TestSummation(TestOperationBase):
 
     # override
     def rand_test(self, times: int):
-        vector_num = 3
+        vector_num = rand_vector_num
         test_list = []
         fail_list = []
         for i in range(times):
             vector_list = list()
             for j in range(vector_num):
-                vector = list()
-                for k in range(vector_element_num):
-                    vector_list.append(self.rand_vector())
+                vector_list.append(self.rand_vector())
             v, fp32_res, test_res_str = self.test_body(vector_list)
             test_list.append([v, fp32_res])
             if check_fail_status(test_res_str):
