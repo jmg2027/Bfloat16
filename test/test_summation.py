@@ -8,7 +8,7 @@ bf16_mant_max = float(bf16(0, 0, 127))
 # Match vector_element_num to FloatSummation.vector_element_num
 #vector_element_num = 64
 vector_element_num = 32
-rand_vector_num = 2
+rand_vector_num = 4
 
 
 class TestSummation(TestOperationBase):
@@ -161,7 +161,7 @@ class TestSummation(TestOperationBase):
                 tfa_e.append(conv_to_tf_dtype(element, self.ftype))
             a.append(a_e)
             tfa.append(tfa_e)
-        res = self.operation(a) 
+        res = self.operation(a, self.mod) 
         tfres = self.tf_operation(tfa)
 
         if check_float_equal(res, tfres):
