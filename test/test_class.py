@@ -101,11 +101,11 @@ class TestOperationBase(TestAbsClass):
         self.tf_operation = self._set_operation(self._TF_OPS, operation) # type: ignore
         self.op: str = operation
 
-    def set_mod(self, mod: int) -> None:
+    def set_mod(self, mod: int) -> int:
         mod_value = self.mod_list.get(mod, None)
         if mod_value is None:
             raise ValueError(f"Unsupported mod {self.mod}")
-        return mod_value
+        return mod
  
     def set_test_set(self, test_set: List) -> List:
         if self._check_test_set(test_set):
