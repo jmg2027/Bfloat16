@@ -357,17 +357,25 @@ class Bfloat16(FloatBase):
         # initialize accumulator
         acc = cls(0, 0, 0)
         # Convert to FP32
-        fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
-        acc_bit = acc.decompose()
-        for v in fp32_vector_list:
+        #fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+        result = Float32(0, 0, 0)
+        
+        #for v in fp32_vector_list:
+        for v in vector_list:
+            # convert acc to fp32
+            acc = bf16_to_fp32(acc)
+            # convert vector to fp32
+            v = [bf16_to_fp32(e) for e in v]
+            # decompose vector and acc
+            acc_bit = acc.decompose()
             vector_bit = [e.decompose() for e in v]
             summation = hw_model.Summation(vector_bit, acc_bit)
             acc_bit = summation.excute()
-            summation.set_acc(acc_bit)
-        result = Float32(0, 0, 0)
-        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
-        result = fp32_to_bf16(result)
-        return result
+            # compose acc
+            acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+            # convert acc result to bf16
+            acc = fp32_to_bf16(acc)
+        return acc
 
 
 class Float32(FloatBase):
@@ -460,35 +468,37 @@ class Float32(FloatBase):
             for v in vl:
                 if not isinstance(v, cls):
                     raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
-        acc = cls(0, 0, 0)
+        result = Float32(0, 0, 0)
         if mod == 0:
-        # initialize accumulator
-            fp32_vector_list: List[List[Self]] = vector_list
+            acc = cls(0, 0, 0)
         elif mod == 1:
-            # Convert to FP32
-            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+            acc = Bfloat16(0, 0, 0)
         elif mod == 2:
-            # Convert to FP32
-            fp32_vector_list: List[List[Self]] = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
+            acc = cls(0, 0, 0)
         else:
             raise FloatTypeError('INVALID_MOD', value = mod)
-        #acc_fp32_bit = acc_fp32.decompose()
-        for v in fp32_vector_list:
-            if mod == 0 or mod == 2:
-                # convert acc to bf16 for rounding
-                acc = fp32_to_bf16(acc)
-                # re-convert acc to fp32
-                acc = bf16_to_fp32(acc)
-            elif mod == 1:
+        for v in vector_list:
+            if mod == 0:
+                # no conversion
                 acc = acc
+                v = v
+            elif mod == 1:
+                # convert to fp32 for operation
+                acc = bf16_to_fp32(acc)
+                v = [bf16_to_fp32(e) for e in v]
+            elif mod == 2:
+                # convert vector to fp32 for operation
+                acc = acc
+                v = [bf16_to_fp32(e) for e in v]
             acc_bit = acc.decompose()
             vector_bit = [e.decompose() for e in v]
             summation = hw_model.Summation(vector_bit, acc_bit)
             acc_bit = summation.excute()
             summation.set_acc(acc_bit)
-        result = Float32(0, 0, 0)
-        result = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
-        return result
+            acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
+            if mod == 1:
+                acc = fp32_to_bf16(acc)
+        return acc
 
 # Converter function
 def bf16_to_fp32(bf16: Bfloat16) -> Float32:
