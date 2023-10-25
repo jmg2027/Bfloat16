@@ -33,24 +33,24 @@ class TestSummation(TestOperationBase):
     #     ]
     #]
     test_set = [
-    #    [[
-    #1.0, 1.0, 1.0, 1.0
-    #     ],
-    #    [
-    #1.0, 2.0, 4.0, 8.0
-    #     ],
-    #    [
-    #1.0, 2.0, 3.0, 4.0
-    #     ],
-    #    [
-    #-1.0, -1.0, -1.0, -1.0
-    #     ],
-    #    [
-    #-1.0, -2.0, -4.0, -8.0
-    #     ],
-    #    [
-    #-1.0, -2.0, -3.0, -4.0
-    #     ]],
+        [[
+    1.0, 1.0, 1.0, 1.0
+         ],
+        [
+    1.0, 2.0, 4.0, 8.0
+         ],
+        [
+    1.0, 2.0, 3.0, 4.0
+         ],
+        [
+    -1.0, -1.0, -1.0, -1.0
+         ],
+        [
+    -1.0, -2.0, -4.0, -8.0
+         ],
+        [
+    -1.0, -2.0, -3.0, -4.0
+         ]],
     # These are adoptable error I think...
     #FAILED SUM([458.0, -1184.0, 0.0036163330078125, -0.0035858154296875]), bf16: Bfloat16(-724.0, sign = 1, exponent=9, mantissa=53), tfbf16: -728
     #FAILED SUM([-0.00173187255859375, 744.0, -744.0, 0.00811767578125]), bf16: Bfloat16(0.006378173828125, sign = 0, exponent=-8, mantissa=81), tfbf16: 0.00640869
@@ -125,13 +125,13 @@ class TestSummation(TestOperationBase):
     #['-inf', 0, 0, 0], 
     #['inf', 0, 0, 0], 
     #['-inf', 0, 0, 0]], 
-    [[1.0633823332454027e+37 for i in range(32)],
-     [-1.0633823332454027e+37 for i in range(32)]],
+    #[[1.0633823332454027e+37 for i in range(32)],
+    # [-1.0633823332454027e+37 for i in range(32)]],
     ]
  
     test_operation = 'summation'
     _INPUT_NUM = 32
-    _TEST_SET_STRUCTURE = '[(num1, num2, num3), (num4, num5, num6), ...]'
+    _TEST_SET_STRUCTURE = '[[32 elements vector], [32 elements vector], ...]'
     mod_list = {0: (fp32, fp32, fp32), 1: (bf16, bf16, fp32), 2: (bf16, fp32, fp32), 3: (bf16, bf16, bf16)}
 
     def __init__(self, mod, test_set = test_set) -> None:
@@ -157,13 +157,15 @@ class TestSummation(TestOperationBase):
             for element in vector:
                 a_e.append(cast_float(element, self.input_ftype))
                 tfa_e.append(conv_to_tf_dtype(element, self.ftype))
+            a.append(a_e)
+            tfa.append(tfa_e)
         res = self.operation(a) 
         tfres = self.tf_operation(tfa)
 
         if check_float_equal(res, tfres):
             test_res_str = f'PASSED SUM({self.op}{input}), res: {res}'
         else:
-            test_res_str = f'FAILED SUM({self.op}{input}), bf16: {res}, tffp32: {res}'
+            test_res_str = f'FAILED SUM({self.op}{input}), bf16: {res}, tffp32: {tfres}'
         print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
@@ -180,7 +182,7 @@ class TestSummation(TestOperationBase):
             for j in range(vector_num):
                 vector = list()
                 for k in range(vector_element_num):
-                    vector_list.append(rand_vector())
+                    vector_list.append(self.rand_vector())
             v, fp32_res, test_res_str = self.test_body(vector_list)
             test_list.append([v, fp32_res])
             if check_fail_status(test_res_str):
@@ -188,96 +190,35 @@ class TestSummation(TestOperationBase):
         check_fail_list(fail_list)
         return test_list
 
-def tf_reduce_sum(vec1):
-    return tf.reduce_sum(vec1)
+    # this method should be defined in subclasses
+    def _check_test_set(self, test_set: List[List[Union[int, float, bf16, fp32]]]) -> bool:
+        res = True
+        # check structure
+        if not isinstance(test_set, list):
+            res = False
+        for v in test_set:
+            # check structure
+            if not isinstance(v, list):
+                res = False
+                for e in v:
+                    if not self._check_input_num:
+                        res = False
+        # input type check is handled in cast_float function in util
+        return res   
 
-def tf_vector_sum(vec1):
-    result = 0.0
-    for i in vec1:
-        result += i
-    return result
+    # override
+    def test(self):
+        fail_list = []
+        for vector_set in self.test_set:
+            _, _, test_res_str = self.test_body(vector_set)
+            if check_fail_status(test_res_str):
+                fail_list.append(test_res_str)
+        check_fail_list(fail_list)
+        return
 
-def convert_element_to_bf16_array(vector: iter) -> iter:
-    bf16_vector = []
-    for element in vector:
-        bf16_vector.append(convert_to_bf16(element))
-    return bf16_vector
-
-def convert_element_to_tfbf16_array(vector: iter) -> iter:
-    tfbf16_vector = []
-    for element in vector:
-        tfbf16_vector.append(convert_to_tfbf16(element))
-    return tfbf16_vector
-
-def test_summation_bf16(vector_list):
-    a = []
-    tfa = []
-    for vector in vector_list:
-        a.append(convert_element_to_bf16_array(vector))
-        tfa.append(convert_element_to_tfbf16_array(vector))
-    bf16_res = bf16.summation(a)
-    tfbf16_res = tf_reduce_sum(tfa)
-
-    if check_float_equal(bf16_res, tfbf16_res):
-        test_res_str = f'PASSED SUM({vector_list}), res: {bf16_res}'
-    else:
-        test_res_str = f'FAILED SUM({vector_list}), bf16: {bf16_res}, tfbf16: {tfbf16_res}'
-    print(test_res_str)
-    return test_res_str
-
-def convert_element_to_fp32_array(vector: iter) -> iter:
-    fp32_vector = []
-    for element in vector:
-        fp32_vector.append(convert_to_fp32(element))
-    return fp32_vector
-
-def convert_element_to_tffp32_array(vector: iter) -> iter:
-    tffp32_vector = []
-    for element in vector:
-        tffp32_vector.append(convert_to_tffp32(element))
-    return tffp32_vector
-
-def test_summation(vector_list):
-    a = []
-    tfa = []
-    for vector in vector_list:
-        a.append(convert_element_to_fp32_array(vector))
-        tfa.append(convert_element_to_tffp32_array(vector))
-    fp32_res = fp32.summation(a)
-    tffp32_res = tf_reduce_sum(tfa)
-
-    if check_float_equal(fp32_res, tffp32_res):
-        test_res_str = f'PASSED SUM({vector_list}), res: {fp32_res}'
-    else:
-        test_res_str = f'FAILED SUM({vector_list}), fp32: {fp32_res}, tffp32: {tffp32_res}'
-    print(test_res_str)
-    return test_res_str
-
-def rand_vector():
-    vector = list()
-    for i in range(vector_element_num):
-        #vector.append(float(random_bf16()))
-        vector.append(float(random_bf16_range(-10, 10)))
-    return vector
-
-def rand_test(times: int, vector_num: int = 16):
-    # Generate 64 input random bf16
-    fail_list = []
-    for i in range(times):
-        vector_list = list()
-        for j in range(vector_num):
-            vector_list.append(rand_vector())
-        test_res_str = test_summation(vector_list)
-        if check_fail_status(test_res_str):
-            fail_list.append(test_res_str)
-    check_fail_list(fail_list)
-    return
-
-def test():
-    fail_list = []
-    for vector_set in test_set:
-        test_res_str = test_summation(vector_set)
-        if check_fail_status(test_res_str):
-            fail_list.append(test_res_str)
-    check_fail_list(fail_list)
-    return
+    def rand_vector(self):
+        vector = list()
+        for i in range(vector_element_num):
+            #vector.append(float(random_bf16()))
+            vector.append(float(random_bf16_range(-10, 10)))
+        return vector
