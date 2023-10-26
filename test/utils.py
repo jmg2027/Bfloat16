@@ -91,35 +91,15 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     else:
         return False
 
-def random_fp(ftype):
+def random_fp(ftype, exp_min: int = -bf16_config.exp_max + 1, exp_max: int = bf16_config.exp_max):
     if ftype == bf16:
-        return random_bf16()
+        return random_bf16(exp_min, exp_max)
     elif ftype == fp32:
-        return random_fp32()
+        return random_fp32(exp_min, exp_max)
     else:
         raise TypeError("Use this function only for Bfloat16 and Float32 type")
 
-def random_bf16() -> bf16:
-    min_exp = - bf16_config.exp_max + 1
-    max_exp = bf16_config.exp_max
-    rand_exp = random.randint(min_exp, max_exp)
-    min_mant = 0
-    max_mant = bf16_config.mant_max
-    rand_mant = random.randint(min_mant, max_mant)
-    rand_sign = random.randint(0,1)
-    return bf16(rand_sign, rand_exp, rand_mant)
-
-def random_fp32() -> fp32:
-    min_exp = - fp32_config.exp_max + 1
-    max_exp = fp32_config.exp_max
-    rand_exp = random.randint(min_exp, max_exp)
-    min_mant = 0
-    max_mant = fp32_config.mant_max
-    rand_mant = random.randint(min_mant, max_mant)
-    rand_sign = random.randint(0,1)
-    return fp32(rand_sign, rand_exp, rand_mant)
-
-def random_bf16_range(exp_min: int = -10, exp_max: int = 10) -> bf16:
+def random_bf16(exp_min: int = -10, exp_max: int = 10) -> bf16:
     min_exp = exp_min 
     max_exp = exp_max
     rand_exp = random.randint(min_exp, max_exp)
@@ -128,6 +108,16 @@ def random_bf16_range(exp_min: int = -10, exp_max: int = 10) -> bf16:
     rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
+
+def random_fp32(exp_min: int = -10, exp_max: int = 10) -> fp32:
+    min_exp = exp_min
+    max_exp = exp_max
+    rand_exp = random.randint(min_exp, max_exp)
+    min_mant = 0
+    max_mant = fp32_config.mant_max
+    rand_mant = random.randint(min_mant, max_mant)
+    rand_sign = random.randint(0,1)
+    return fp32(rand_sign, rand_exp, rand_mant)
 
 def check_fail_list(fail_list: list) -> None:
     print("TEST RESULT")
