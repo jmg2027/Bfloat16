@@ -355,7 +355,7 @@ class Bfloat16(FloatBase):
                 if not isinstance(v, cls):
                     raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
         # initialize accumulator
-        acc = cls(0, 0, 0)
+        acc = cls(0, -126, 0)
         # Convert to FP32
         #fp32_vector_list = [[bf16_to_fp32(v) for v in vl] for vl in vector_list]
         result = Float32(0, 0, 0)
@@ -474,11 +474,11 @@ class Float32(FloatBase):
                         raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
         result = Float32(0, 0, 0)
         if mod == 0:
-            acc = cls(0, 0, 0)
+            acc = cls(0, -126, 0)
         elif mod == 1:
-            acc = Bfloat16(0, 0, 0)
+            acc = Bfloat16(0, -126, 0)
         elif mod == 2:
-            acc = cls(0, 0, 0)
+            acc = cls(0, -126, 0)
         else:
             raise FloatTypeError('INVALID_MOD', value = mod)
         for v in vector_list:
@@ -494,7 +494,9 @@ class Float32(FloatBase):
                 # convert vector to fp32 for operation
                 acc = acc
                 v = [bf16_to_fp32(e) for e in v]
+            print(acc)
             acc_bit = acc.decompose()
+            print(acc_bit)
             vector_bit = [e.decompose() for e in v]
             summation = hw_model.Summation(vector_bit, acc_bit)
             acc_bit = summation.excute()
