@@ -8,7 +8,7 @@ bf16_mant_max = float(bf16(0, 0, 127))
 # Match vector_element_num to FloatSummation.vector_element_num
 #vector_element_num = 64
 vector_element_num = 32
-rand_vector_num = 4
+rand_vector_num = 10
 
 
 class TestSummation(TestOperationBase):
@@ -35,7 +35,8 @@ class TestSummation(TestOperationBase):
     #     ]
     #]
     test_set = [
-        [[
+        [
+            [
     1.0, 1.0, 1.0, 1.0
          ],
         [
@@ -52,7 +53,8 @@ class TestSummation(TestOperationBase):
          ],
         [
     -1.0, -2.0, -3.0, -4.0
-         ]],
+         ]
+         ],
     # These are adoptable error I think...
     #FAILED SUM([458.0, -1184.0, 0.0036163330078125, -0.0035858154296875]), bf16: Bfloat16(-724.0, sign = 1, exponent=9, mantissa=53), tfbf16: -728
     #FAILED SUM([-0.00173187255859375, 744.0, -744.0, 0.00811767578125]), bf16: Bfloat16(0.006378173828125, sign = 0, exponent=-8, mantissa=81), tfbf16: 0.00640869
@@ -220,5 +222,5 @@ class TestSummation(TestOperationBase):
         vector = list()
         for i in range(vector_element_num):
             #vector.append(float(random_bf16()))
-            vector.append(float(random_bf16_range(-10, 10)))
+            vector.append(float(random_fp(self.input_ftype, -126, 120)))
         return vector
