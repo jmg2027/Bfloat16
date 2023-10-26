@@ -494,9 +494,7 @@ class Float32(FloatBase):
                 # convert vector to fp32 for operation
                 acc = acc
                 v = [bf16_to_fp32(e) for e in v]
-            print(acc)
             acc_bit = acc.decompose()
-            print(acc_bit)
             vector_bit = [e.decompose() for e in v]
             summation = hw_model.Summation(vector_bit, acc_bit)
             acc_bit = summation.excute()
