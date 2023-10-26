@@ -62,7 +62,7 @@ class TestFMA(TestOperationBase):
         #print(res)
 
         tf_operand_input = tuple(map(conv_to_tf_dtype, (input[0], input[1]), [self.input_ftype]*(self._INPUT_NUM - 1)))
-        tf_operand_output = conv_to_tf_dtype(input[2], self.ftype)
+        tf_operand_output = conv_to_tf_dtype(input[2], self.input_ftype)
         tf_operand = (*tf_operand_input, tf_operand_output)
         tfres = self.tf_operation(*tf_operand)
         
