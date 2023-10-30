@@ -98,6 +98,7 @@ class FloatFMA:
                 p_mant_us.__ilshift__(1)
 
                 
+            #print('a_exp + b_exp', int(a_exp_signed + b_exp_signed - bias_signed))
             #print('c_exp_signed:',int(c_exp_signed))
             #print('p_exp_signed:',int(p_exp_signed))
             # Exponent difference
@@ -190,6 +191,11 @@ class FloatFMA:
                 else:
                     mant_add_in_c = mant_shift
                     mant_add_in_p = mant_unshift
+
+                #print(hex(int(mant_unshift)))
+                #print(hex(int(mant_shift_in)))
+                #print(hex(int(mant_shift)))
+                #print(mant_shift_amt)
 
                 #print('c>p', c_exp_gt_p)
                 #print(repr(mant_shift))
