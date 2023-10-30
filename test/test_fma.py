@@ -36,7 +36,7 @@ class TestFMA(TestOperationBase):
     test_operation = 'fma'
     _INPUT_NUM = 3
     _TEST_SET_STRUCTURE = '[(num1, num2, num3), (num4, num5, num6), ...]'
-    mod_list = {0: (bf16, bf16, bf16), 1: (bf16, bf16, fp32), 2: (fp32, fp32, fp32)}
+    mod_list = {0: (fp32, fp32, fp32), 1: (bf16, bf16, bf16), 2: (bf16, bf16, fp32)}
 
     def __init__(self, mod, test_set = test_set) -> None:
         super().__init__(mod, test_set, self.test_operation)
@@ -68,6 +68,7 @@ class TestFMA(TestOperationBase):
         
         if check_float_equal(res, tfres):
             test_res_str = f'PASSED {self.op}{input}, res: {res}'
+            #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
         else:
             test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}'
         print(test_res_str)
