@@ -90,7 +90,7 @@ class FloatFMA:
             if p_mant_us[2*precision_bit-1] == ubit(1, '1'):
                 # 1x.xxx...
                 # exp + 1
-                p_exp_signed = a_exp_signed + b_exp_signed - bias_signed + sbit(2, '01')
+                p_exp_signed = a_exp_signed + b_exp_signed - bias_signed + sbit(a_exp.bitwidth + 2, '01')
             else:
                 # 0x.xxx...
                 # left shift mantissa
@@ -192,10 +192,10 @@ class FloatFMA:
                     mant_add_in_c = mant_shift
                     mant_add_in_p = mant_unshift
 
-                #print(hex(int(mant_unshift)))
-                #print(hex(int(mant_shift_in)))
-                #print(hex(int(mant_shift)))
-                #print(mant_shift_amt)
+                #print("mant_unshift", hex(int(mant_unshift)))
+                #print("mant_shift_in", hex(int(mant_shift_in)))
+                #print("mant_shift", hex(int(mant_shift)))
+                #print("mant_shift_amt", mant_shift_amt)
 
                 #print('c>p', c_exp_gt_p)
                 #print(repr(mant_shift))
