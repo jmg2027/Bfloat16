@@ -477,6 +477,7 @@ class FloatFloat32toBfloat16:
         
         ret_sign = a_sign
         if ((a_mant[22:16] == bit(7, bin(0x7F)))):
+            ret_exp = a_exp
             ret_mant = bit(1, '0')
             if (int(a_exp) != 255):
                 ret_exp = a_exp + bit(1, '1')
