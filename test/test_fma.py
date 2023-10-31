@@ -61,8 +61,11 @@ class TestFMA(TestOperationBase):
         res = self.operation(*operand)
         #print(res)
 
+        # when input operands are bf16 and output is fp32, tf dtype conversion should be like this:
+        # float -> bf16(for input type) -> fp32(for operation) 
         tf_operand_input = tuple(map(conv_to_tf_dtype, (input[0], input[1]), [self.input_ftype]*(self._INPUT_NUM - 1)))
-        tf_operand_output = conv_to_tf_dtype(input[2], self.input_ftype)
+        tf_operand_input = tuple(map(conv_to_tf_dtype, (tf_operand_input[0], tf_operand_input[1]), [self.ftype]*(self._INPUT_NUM - 1)))
+        tf_operand_output = conv_to_tf_dtype(input[2], self.ftype)
         tf_operand = (*tf_operand_input, tf_operand_output)
         tfres = self.tf_operation(*tf_operand)
         
@@ -71,6 +74,7 @@ class TestFMA(TestOperationBase):
             #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
         else:
             test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}'
+            #test_res_str = f'FAILED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
         print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
