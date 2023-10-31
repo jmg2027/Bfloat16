@@ -322,6 +322,8 @@ class Bfloat16(FloatBase):
     @classmethod
     def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16') -> 'Bfloat16':
         # mod 0: a, b = fp32, c = fp32
+        # mod 1: a, b = bf16, c = bf16
+        # mod 2: a, b = bf16, c = fp32
         if not isinstance(a or b or c, cls):
             raise FloatTypeError('INVALID_OPERAND', value = (a, b, c), expected_type=type(cls))
         a_input = bf16_to_fp32(a)
@@ -428,8 +430,7 @@ class Float32(FloatBase):
 
     @classmethod
     def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32') -> Union['Bfloat16', 'Float32']:
-        # mod 1: a, b = bf16, c = fp32
-        # mod 2: a, b = fp32, c = fp32
+        # mod 0: a, b = fp32, c = fp32
         # mod 1: a, b = bf16, c = bf16
         # mod 2: a, b = bf16, c = fp32
         mod_2 = isinstance(a, Bfloat16) & isinstance(b, Bfloat16) & isinstance(c, Float32)
