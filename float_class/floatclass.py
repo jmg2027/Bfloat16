@@ -127,7 +127,10 @@ class FloatBase(metaclass=ABCMeta):
     # Representation
     def __float__(self):
         if self.iszero():
-            float_repr = 0.0
+            if self.fp_int.sign == 0:
+                float_repr = 0.0
+            else:
+                float_repr = -0.0
         elif self.isnan():
             float_repr = float('nan')
         elif self.isinf() and self.fp_int.sign == 0:
