@@ -2,6 +2,7 @@ import tensorflow as tf
 import random
 from jaxtyping import BFloat16 as tfbfloat16
 from jaxtyping import Float32 as tffloat32
+from jaxtyping import Float64 as tffloat64
 
 from .commonimport import bf16, fp32, bf16_obj, fp32_obj, FloatBase, bf16_config, fp32_config
 
@@ -35,11 +36,31 @@ def conv_to_tf_dtype(num: float, ftype: Type[FloatBaseT] = fp32) -> Union[tfbflo
     else:
         raise TypeError("Use this function only for Bfloat16 and Float32 type")
 
+def conv_from_tf_to_tf_dtype(num: tffloat64, ftype: Type[FloatBaseT] = fp32) -> Union[tfbfloat16, tffloat32]:
+    '''
+    num: float, ftype: Type[FloatBaseT] -> tf.bfloat16, tf.float32
+    '''
+    if ftype == bf16:
+        return convert_from_tf_to_tfbf16(num)
+    elif ftype == fp32:
+        return convert_from_tf_to_tffp32(num)
+    else:
+        raise TypeError("Use this function only for Bfloat16 and Float32 type")
+
+def convert_from_tf_to_tfbf16(num: tffloat64) -> tfbfloat16:
+    return tf.cast(num, tf.bfloat16)
+
+def convert_from_tf_to_tffp32(num: tffloat64) -> tffloat32:
+    return tf.cast(num, tf.float32)
+
 def convert_to_tfbf16(num: float) -> tfbfloat16:
     return tf.cast(float(num), tf.bfloat16)
 
 def convert_to_tffp32(num: float) -> tffloat32:
     return tf.cast(float(num), tf.float32)
+
+def convert_to_tffp64(num: float) -> tffloat64:
+    return tf.cast(float(num), tf.float64)
 
 def convert_tfbf16_to_int(num: tfbfloat16) -> int:
     return int(num)
@@ -77,19 +98,24 @@ def cast_float(frepr: TestInputT, \
 
 def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
-    if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
+    ulp_error = calc_ulp_error(res1, res2)
+    # ulp error under 2
+    if ulp_error <= 1:
         return True
-    if isinstance(res1, bf16):
+    else:
+        return False
+
+def calc_ulp_error(res1: Union[bf16, fp32], res2):
+    # nan cannot be compared
+    if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
+        ulp_error = 0
+    elif isinstance(res1, bf16):
         ulp_error = bf16_ulp_dist((res1), float(res2))
     elif isinstance(res1, fp32):
         ulp_error = fp32_ulp_dist((res1), float(res2))
     else:
         raise TypeError(f"Input type should be bf16 or fp32. Current input: {type(res1)}")
-    # ulp error under 2
-    if ulp_error <= 2:
-        return True
-    else:
-        return False
+    return ulp_error
 
 def random_fp(ftype, exp_min: int = -bf16_config.exp_max + 1, exp_max: int = bf16_config.exp_max):
     if ftype == bf16:
@@ -105,7 +131,10 @@ def random_bf16(exp_min: int = -10, exp_max: int = 10) -> bf16:
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
     max_mant = bf16_config.mant_max
-    rand_mant = random.randint(min_mant, max_mant)
+    if rand_exp == -127:
+        rand_mant = min_mant
+    else:
+        rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return bf16(rand_sign, rand_exp, rand_mant)
 
@@ -115,7 +144,10 @@ def random_fp32(exp_min: int = -10, exp_max: int = 10) -> fp32:
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
     max_mant = fp32_config.mant_max
-    rand_mant = random.randint(min_mant, max_mant)
+    if rand_exp == 0:
+        rand_mant = min_mant
+    else:
+        rand_mant = random.randint(min_mant, max_mant)
     rand_sign = random.randint(0,1)
     return fp32(rand_sign, rand_exp, rand_mant)
 
