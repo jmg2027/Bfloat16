@@ -233,24 +233,30 @@ class FloatFMA:
         # 000.10000000000000000000000RS exp = 2 (28bits)
         # 0011.00000000000000000000000RS exp = 2 + 2 - 1 (28bits)
         # xxx., exp = 2
+        # scxx.xx... (50bits)
         c_mant_inv = -sbit(27, f'000{c_mant_us.bin}') if c_sign.bin == '1' else sbit(27, f'000{c_mant_us.bin}')
         p_mant_inv = -sbit(50, f'00{p_mant_us.bin}') if p_sign.bin == '1' else sbit(50, f'00{p_mant_us.bin}')
-        c_mant_signed_28_3 = sbit(29, f'{c_mant_inv.bin}00')
-        p_mant_signed_49_3 = p_mant_inv
-        c_mant_signed_shifted_28_3 = c_mant_signed_28_3.arith_rshift(1) if int(exp_diff) == 1 else c_mant_signed_28_3
+        c_mant_signed_29_3 = sbit(29, f'{c_mant_inv.bin}00')
+        p_mant_signed_50_3 = p_mant_inv
+        c_mant_signed_shifted_29_3 = c_mant_signed_29_3.arith_rshift(1) if int(exp_diff) == 1 else c_mant_signed_29_3
         if int(exp_diff) == -1:
-            p_mant_signed_shifted_49_3 = p_mant_signed_49_3.arith_rshift(1)
+            p_mant_signed_shifted_50_3 = p_mant_signed_50_3.arith_rshift(1)
         elif int(exp_diff) == -2:
-            p_mant_signed_shifted_49_3 = p_mant_signed_49_3.arith_rshift(2) if int(exp_diff) == -2 else p_mant_signed_49_3
+            p_mant_signed_shifted_50_3 = p_mant_signed_50_3.arith_rshift(2) if int(exp_diff) == -2 else p_mant_signed_50_3
         else:
-            p_mant_signed_shifted_49_3 = p_mant_signed_49_3
+            p_mant_signed_shifted_50_3 = p_mant_signed_50_3
         
 
-        mant_add_29_3 = p_mant_signed_shifted_49_3[49:21] + c_mant_signed_shifted_28_3
+        mant_add_29_3 = p_mant_signed_shifted_50_3[49:21] + c_mant_signed_shifted_29_3
+        mant_add_50_test = p_mant_signed_shifted_50_3 + c_mant_signed_shifted_29_3.concat(sbit(21, '0'))
+        # Precision hurts
+        #mant_add_signed_50_test = -mant_add_50_test if mant_add_50_test[49].bin == '1' else mant_add_50_test
+        #print(mant_add_signed_50_test)
         mant_add_signed_29_3 = -mant_add_29_3 if mant_add_29_3[28].bin == '1' else mant_add_29_3
-        mant_add_signed_49_3 = mant_add_signed_29_3.concat(sbit(20, p_mant_signed_shifted_49_3[19:0].bin))
+        mant_add_signed_50_3 = mant_add_signed_29_3.concat(sbit(21, p_mant_signed_shifted_50_3[20:0].bin))
         
-        shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_49_3[47:0])
+        
+        shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_50_3[48:0])
 
         if int(exp_diff) == 1:
             # p > c
@@ -260,14 +266,17 @@ class FloatFMA:
             temp_exp_3 = c_exp_signed + sbit(2, bin(2))
 
         shifted_exp_3 = temp_exp_3 - sbit(fp32_config.exponent_bits + 2, bin(shift_amt_3))
-        mant_add_shifted_49_3 = ubit(mant_add_signed_49_3.bitwidth, (mant_add_signed_49_3 << shift_amt_3).bin)
+        mant_add_shifted_50_3 = ubit(mant_add_signed_50_3.bitwidth, (mant_add_signed_50_3 << shift_amt_3).bin)
 
         # round
-        lsb_3 = mant_add_shifted_49_3[24]
-        round_3 = mant_add_shifted_49_3[23]
-        sticky_3 = ubit(1, bin(mant_add_shifted_49_3[22:0] != ubit(1, '0')))
+        lsb_3 = mant_add_shifted_50_3[25]
+        round_3 = mant_add_shifted_50_3[24]
+        sticky_3 = ubit(1, bin(mant_add_shifted_50_3[23:0] != ubit(1, '0')))
         round_up_3 = (lsb_3 & round_3) | (round_3 & sticky_3)
-        mant_rounded_3 = mant_add_shifted_49_3[48:24] + round_up_3
+        mant_rounded_3 = mant_add_shifted_50_3[49:25] + round_up_3
+
+        #print(int((mant_add_signed_50_test << shift_amt_3)[49:25]))
+        #print(int(mant_add_shifted_50_3[49:25] ))
 
         # postnormalize
         if mant_rounded_3 == ubit(mant_rounded_3.bitwidth, bin((1 << mant_rounded_3.bitwidth) - 1)):
@@ -280,20 +289,20 @@ class FloatFMA:
 
         print('c_mant_inv', repr(c_mant_inv))
         print('p_mant_inv', repr(p_mant_inv))
-        print('c_mant_signed_shifted_28_3', repr(c_mant_signed_shifted_28_3))
-        print('p_mant_signed_shifted_49_3', repr(p_mant_signed_shifted_49_3[49:21]))
+        print('c_mant_signed_shifted_29_3', repr(c_mant_signed_shifted_29_3))
+        print('p_mant_signed_shifted_50_3', repr(p_mant_signed_shifted_50_3[49:21]))
         print('mant_add_29_3', repr(mant_add_29_3))
         print('mant_add_signed_29_3', repr(mant_add_signed_29_3))
-        print('mant_add_signed_49_3', repr(mant_add_signed_49_3))
+        print('mant_add_signed_50_3', repr(mant_add_signed_50_3))
 
-        print('mant_add_signed_49_3[47:0]', mant_add_signed_49_3[47:0])
+        print('mant_add_signed_50_3[47:0]', mant_add_signed_50_3[47:0])
 
         print('shift_amt_3', shift_amt_3)
         print('temp_exp_3', int(temp_exp_3))
         print('shifted_exp_3', int(shifted_exp_3))
-        print('mant_add_signed_49_3', mant_add_signed_49_3)
-        print('mant_add_shifted_49_3', mant_add_shifted_49_3)
-        print('mant_add_shifted_49_3[48:24]', mant_add_shifted_49_3[48:24])
+        print('mant_add_signed_50_3', mant_add_signed_50_3)
+        print('mant_add_shifted_50_3', mant_add_shifted_50_3)
+        print('mant_add_shifted_50_3[48:24]', mant_add_shifted_50_3[48:24])
         print('round_up_3', round_up_3)
         print('mant_rounded_3', repr(mant_rounded_3))
 

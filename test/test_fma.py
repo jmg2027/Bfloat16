@@ -9,7 +9,7 @@ from typing_extensions import Self
 
 class TestFMA(TestOperationBase):
     test_set = [
-    #        (1.0, 2.0, 4.0),
+            (1.0, 2.0, 4.0),
     #        (1.0, 2.0, 2.0),
     #        (1.0, 2.0, 3.0),
     #        (100.0, 2.0, 3.0),
@@ -39,6 +39,9 @@ class TestFMA(TestOperationBase):
     ## case: exp_diff = -2 and subtract -> needs lzc
     #(-8224078003437568.0, 1.888424983115578e-38, 2.5540332323568454e-22),
     #(8224078003437568.0, 1.888424983115578e-38, 2.5540332323568454e-22),
+    # FAILED fma(Float32(1.658261946118133e-32, sign = 0, exponent=-106, mantissa=2896938), Float32(0.0002102892758557573, sign = 0, exponent=-13, mantissa=6062361), Float32(-3.50296132728099e-36, sign = 1, exponent=-118, mantissa=1376223)), lib: Float32(-1.5814429489254797e-38, sign = 1, exponent=-126, mantissa=2896946), tf: -1.5814289359408364e-38, ulp_error: 100
+    (1.658261946118133e-32, 0.0002102892758557573, -3.50296132728099e-36)
+    # FAILED fma(Float32(-3.4955471162181546e-23, sign = 1, exponent=-75, mantissa=2689223), Float32(3.922678904061092e+20, sign = 0, exponent=68, mantissa=2760316), Float32(0.01334461197257042, sign = 0, exponent=-7, mantissa=5940060)), lib: Float32(-0.0003672972379717976, sign = 1, exponent=-12, mantissa=4231629), tf: -0.000367296946933493, ulp_error: 10
 
     #(bf16_obj.from_hex(0x08f1), bf16_obj.from_hex(0xffad), bf16_obj.from_hex(0x774b))
     ]
