@@ -100,6 +100,7 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
     ulp_error = calc_ulp_error(res1, res2)
     # ulp error under 2
+    
     if ulp_error <= 1:
         return True
     else:
@@ -113,6 +114,11 @@ def calc_ulp_error(res1: Union[bf16, fp32], res2):
         ulp_error = bf16_ulp_dist((res1), float(res2))
     elif isinstance(res1, fp32):
         ulp_error = fp32_ulp_dist((res1), float(res2))
+    # I won't mind -0.0 and 0.0
+    elif (float(res1) == 0.0) & (float(res2) == -0.0):
+        ulp_error = 0
+    elif (float(res1) == -0.0) & (float(res2) == 0.0):
+        ulp_error = 0
     else:
         raise TypeError(f"Input type should be bf16 or fp32. Current input: {type(res1)}")
     return ulp_error

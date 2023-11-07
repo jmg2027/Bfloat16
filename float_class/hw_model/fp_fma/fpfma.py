@@ -90,19 +90,12 @@ class FloatFMA:
 
         case_1 = int(exp_diff) >=24
         case_2 = 24 > int(exp_diff) >= 2
-        case_3 = 2 > int(exp_diff) > -2
-        case_4 = -2 >= int(exp_diff) >= -24
+        #case_3 = 2 > int(exp_diff) > -2
+        #case_4 = -2 >= int(exp_diff) >= -24
+        case_3 = 2 > int(exp_diff) >= -2
+        case_4 = -2 > int(exp_diff) >= -24
         case_5 = -24 > int(exp_diff)
 
-        if case_1:
-            shift_amt_124 = 23
-        elif case_2:
-            shift_amt_124 = int(exp_diff)
-        elif case_4:
-            shift_amt_124 = -int(exp_diff)
-        else:
-            # not used
-            shift_amt_124 = 0
         # 3 path design
         # Case 5
         # Case 1, 2, 4
@@ -124,38 +117,81 @@ class FloatFMA:
         ret_mant_rounded_5 = ubit(c_mant_us.bitwidth, bin(int(c_mant_us) + (-int(round_up_5) if fma_sign else int(round_up_5))))
         if c_mant_us == bit(c_mant_us.bitwidth, bin((1 << c_mant_us.bitwidth) - 1)):
             ret_mant_case_5 = bit(precision_bit - 1, '0')
-            ret_exp_case_5 = (c_exp_signed + sbit(2, '01'))[fp32_config.exponent_bits-1:0]
+            ret_exp_case_5 = (c_exp_signed + sbit(2, '01'))
         else:
             ret_mant_case_5 = ret_mant_rounded_5[precision_bit-2:0]
-            ret_exp_case_5 = c_exp_signed[fp32_config.exponent_bits-1:0]
+            ret_exp_case_5 = c_exp_signed
         ret_sign_case_5 = c_sign
 
         # result: ret_mant_case_5, ret_exp_case_5, ret_sign_case_5
 
         # Case 1, 2, 4
+        if case_1:
+            shift_amt_124 = 23
+        elif case_2:
+            shift_amt_124 = int(exp_diff)
+        elif case_4:
+            shift_amt_124 = -int(exp_diff)
+        else:
+            # not used
+            shift_amt_124 = 0
+
         p_mant_signed_49_pre_124 = sbit(p_mant_us.bitwidth + 1, f'0{p_mant_us.bin}')
-        c_mant_signed_25_pre_124 = sbit(c_mant_us.bitwidth + 1, f'0{c_mant_us.bin}')
-        p_mant_signed_49_124 = -p_mant_signed_49_pre_124 if fma_sign else p_mant_signed_49_pre_124
-        c_mant_signed_25_124 = -c_mant_signed_25_pre_124 if fma_sign else c_mant_signed_25_pre_124
-        # Sign extension
-        c_mant_signed_49_124 = sbit(p_mant_us.bitwidth + 1, f'{c_mant_signed_25_124.bin}')
-        c_mant_49_124 = sbit(p_mant_us.bitwidth + 1, f'{c_mant_us.concat(bit(24, "0")).bin}')
-        
+        c_mant_signed_26_pre_124 = sbit(c_mant_us.bitwidth + 2, f'00{c_mant_us.bin}')
 
         # Shift lesser mantissa
         # case 1, 2: p > c
+        # 1x.xxx -> exp + 1
         # case 4: c > p
-        # 1x.xxx -> exp + 1, 0x.xxx -> exp
-        if case_1 or case_2:
-            shifted_input_124 = c_mant_signed_49_124 >> shift_amt_124
+        # 1.xxx -> exp
+
+        if case_1:
+            # p > c
+            shifted_input_124 = sbit(p_mant_us.bitwidth + 1, '0')
             unshifted_input_124 = p_mant_signed_49_pre_124
-            temp_exp_124 = p_exp_signed + sbit(2, '01') if p_mant_signed_49_pre_124[47] else p_exp_signed
+            temp_exp_124 = p_exp_signed
+            ret_sign_case_124 = p_sign
+        elif case_2:
+            # p > c
+            c_mant_signed_26_124 = -c_mant_signed_26_pre_124 if fma_sign.bin == '1' else c_mant_signed_26_pre_124
+            c_mant_signed_49_124 = sbit(p_mant_us.bitwidth + 1, f'{c_mant_signed_26_124.concat(sbit(23, "0")).bin}')
+            shifted_input_124 = c_mant_signed_49_124.arith_rshift(shift_amt_124)
+            unshifted_input_124 = p_mant_signed_49_pre_124
+            temp_exp_124 = p_exp_signed
+            ret_sign_case_124 = p_sign
         else:
-            shifted_input_124 = p_mant_signed_49_124 >> shift_amt_124
-            unshifted_input_124 = c_mant_49_124
+            # c > p
+            p_mant_signed_49_124 = -p_mant_signed_49_pre_124 if fma_sign.bin == '1' else p_mant_signed_49_pre_124
+            c_mant_signed_26_124 = c_mant_signed_26_pre_124
+            c_mant_signed_49_124 = sbit(p_mant_us.bitwidth + 1, f'{c_mant_signed_26_124.concat(sbit(23, "0")).bin}')
+            shifted_input_124 = p_mant_signed_49_124.arith_rshift(shift_amt_124)
+            unshifted_input_124 = c_mant_signed_49_124
             temp_exp_124 = c_exp_signed
+            ret_sign_case_124 = c_sign
         
-        mant_add_124 = shifted_input_124 + unshifted_input_124
+        mant_add_before_norm_124 = shifted_input_124 + unshifted_input_124
+
+        # normalize
+        if mant_add_before_norm_124[47].bin == '1':
+            # 1xx.xxx...
+            mant_add_124 = mant_add_before_norm_124
+            temp_norm_exp_124 = temp_exp_124 + sbit(2, '01') 
+        elif mant_add_before_norm_124[46].bin == '1':
+            # 01x.xxx...
+            mant_add_124 = sbit(mant_add_before_norm_124.bitwidth, f'{mant_add_before_norm_124[47:0].bin}0')
+            temp_norm_exp_124 = temp_exp_124
+        else:
+            # 001.xxx...
+            mant_add_124 = sbit(mant_add_before_norm_124.bitwidth, f'{mant_add_before_norm_124[46:0].bin}00')
+            temp_norm_exp_124 = temp_exp_124 - sbit(1, '1')
+
+        #print('p_mant_signed_49_pre_124', repr(p_mant_signed_49_pre_124))
+        #print('c_mant_signed_25_pre_124', repr(c_mant_signed_26_pre_124))
+        #print('shifted_input_124       ', repr(shifted_input_124       ))
+        #print('unshifted_input_124     ', repr(unshifted_input_124     ))
+        #print('temp_exp_124            ',  int(temp_exp_124            ))
+        #print('mant_add_before_norm_124', repr(mant_add_before_norm_124))
+        #print('mant_add_124            ', repr(mant_add_124            ))
 
         # round
         lsb_124 = mant_add_124[24]
@@ -167,40 +203,61 @@ class FloatFMA:
         # postnormalize
         if mant_rounded_124 == sbit(mant_rounded_124.bitwidth, bin((1 << mant_rounded_124.bitwidth) - 1)):
             ret_mant_case_124 = bit(precision_bit - 1, '0')
-            ret_exp_case_124 = (temp_exp_124 + sbit(2, '01'))[fp32_config.exponent_bits-1:0]
+            ret_exp_case_124 = (temp_norm_exp_124 + sbit(2, '01'))
         else:
-            ret_mant_case_124 = mant_rounded_124[precision_bit-2:0]
-            ret_exp_case_124 = temp_exp_124[fp32_config.exponent_bits-1:0]
-        ret_sign_case_124 = fma_sign
+            ret_mant_case_124 = bit(precision_bit-1, mant_rounded_124[precision_bit-2:0].bin)
+            ret_exp_case_124 = temp_norm_exp_124
+        
 
         # Case 3
-        c_mant_inv = -sbit(25, f'0{c_mant_us.bin}') if c_sign.bin == '1' else sbit(25, f'0{c_mant_us.bin}')
-        p_mant_inv = -sbit(49, f'0{p_mant_us.bin}') if p_sign.bin == '1' else sbit(49, f'0{p_mant_us.bin}')
-        c_mant_signed_27_3 = sbit(27, f'{c_mant_inv.bin}00')
+        # 2 + 4
+        # exp_diff = -1
+        # 001.0000000000000000000000000000000000000000000000 exp = 1 (49bits)
+        # 001.00000000000000000000000RS exp = 2 (28bits)
+        # 000.1000000000000000000000000000000000000000000000 exp = 2
+        # 0001.10000000000000000000000RS exp = 2 + 2 - 2
+        # 11.1
+        # 01.1
+        # 11.1 + 01.1 = 100.1
+
+        # 2 + 2
+        # exp_diff = 0
+        # 001.0000000000000000000000000000000000000000000000 exp = 1
+        # 001.00000000000000000000000RS exp = 1 (28bits)
+        # 0010.00000000000000000000000RS exp = 1 + 2 - 1
+         
+        # 4 + 2
+        # exp_diff = 1
+        # 001.0000000000000000000000000000000000000000000000 exp = 2 (49bits)
+        # 001.00000000000000000000000RS exp = 1 (28bits)
+        # 000.10000000000000000000000RS exp = 2 (28bits)
+        # 0011.00000000000000000000000RS exp = 2 + 2 - 1 (28bits)
+        # xxx., exp = 2
+        c_mant_inv = -sbit(27, f'000{c_mant_us.bin}') if c_sign.bin == '1' else sbit(27, f'000{c_mant_us.bin}')
+        p_mant_inv = -sbit(50, f'00{p_mant_us.bin}') if p_sign.bin == '1' else sbit(50, f'00{p_mant_us.bin}')
+        c_mant_signed_28_3 = sbit(29, f'{c_mant_inv.bin}00')
         p_mant_signed_49_3 = p_mant_inv
-        c_mant_signed_shifted_27_3 = c_mant_signed_27_3 >> 1 if int(exp_diff) == 1 else c_mant_signed_27_3
-        #p_mant_signed_shifted_49_3 = p_mant_signed_49_3 >> 1 if int(exp_diff) == -1 else p_mant_signed_49_3
-        p_mant_signed_shifted_49_3 = p_mant_signed_49_3 if int(exp_diff) == 1 else p_mant_signed_49_3 >> 1
-
-        mant_add_49_3 = p_mant_signed_shifted_49_3[48:22] + c_mant_signed_shifted_27_3
-        mant_add_signed_27_3 = -mant_add_49_3 if mant_add_49_3 == sbit(2, '01') else mant_add_49_3
-        mant_add_signed_49_3 = mant_add_signed_27_3.concat(p_mant_signed_shifted_49_3[21:0])
-
-        #shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_49_3)
-        shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_49_3[47:0])
+        c_mant_signed_shifted_28_3 = c_mant_signed_28_3.arith_rshift(1) if int(exp_diff) == 1 else c_mant_signed_28_3
+        if int(exp_diff) == -1:
+            p_mant_signed_shifted_49_3 = p_mant_signed_49_3.arith_rshift(1)
+        elif int(exp_diff) == -2:
+            p_mant_signed_shifted_49_3 = p_mant_signed_49_3.arith_rshift(2) if int(exp_diff) == -2 else p_mant_signed_49_3
+        else:
+            p_mant_signed_shifted_49_3 = p_mant_signed_49_3
         
-        print('p_mant_us', repr(p_mant_us))
-        print('p_mant_inv', repr(p_mant_inv))
+
+        mant_add_29_3 = p_mant_signed_shifted_49_3[49:21] + c_mant_signed_shifted_28_3
+        mant_add_signed_29_3 = -mant_add_29_3 if mant_add_29_3[28].bin == '1' else mant_add_29_3
+        mant_add_signed_49_3 = mant_add_signed_29_3.concat(sbit(20, p_mant_signed_shifted_49_3[19:0].bin))
+        
+        shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_49_3[47:0])
 
         if int(exp_diff) == 1:
             # p > c
-            if p_mant_us[47] == bit(1, '1'):
-                temp_exp_3 = p_exp_signed + sbit(2, '01')
-            else:
-                temp_exp_3 = p_exp_signed
+            temp_exp_3 = p_exp_signed + sbit(2, bin(2))
         else:
             # c >= p
-            temp_exp_3 = c_exp_signed
+            temp_exp_3 = c_exp_signed + sbit(2, bin(2))
 
         shifted_exp_3 = temp_exp_3 - sbit(fp32_config.exponent_bits + 2, bin(shift_amt_3))
         mant_add_shifted_49_3 = ubit(mant_add_signed_49_3.bitwidth, (mant_add_signed_49_3 << shift_amt_3).bin)
@@ -215,16 +272,25 @@ class FloatFMA:
         # postnormalize
         if mant_rounded_3 == ubit(mant_rounded_3.bitwidth, bin((1 << mant_rounded_3.bitwidth) - 1)):
             ret_mant_case_3 = bit(precision_bit - 1, '0')
-            ret_exp_case_3 = (shifted_exp_3 + sbit(2, '01'))[fp32_config.exponent_bits-1:0]
+            ret_exp_case_3 = (shifted_exp_3 + sbit(2, '01'))
         else:
-            #ret_mant_case_3 = mant_rounded_3[precision_bit-2:0]
             ret_mant_case_3 = mant_rounded_3[precision_bit-2:0]
-            ret_exp_case_3 = shifted_exp_3[fp32_config.exponent_bits-1:0]
-        ret_sign_case_3 = fma_sign
+            ret_exp_case_3 = shifted_exp_3
+        ret_sign_case_3 = bit(1, mant_add_29_3[28].bin)
+
+        print('c_mant_inv', repr(c_mant_inv))
+        print('p_mant_inv', repr(p_mant_inv))
+        print('c_mant_signed_shifted_28_3', repr(c_mant_signed_shifted_28_3))
+        print('p_mant_signed_shifted_49_3', repr(p_mant_signed_shifted_49_3[49:21]))
+        print('mant_add_29_3', repr(mant_add_29_3))
+        print('mant_add_signed_29_3', repr(mant_add_signed_29_3))
+        print('mant_add_signed_49_3', repr(mant_add_signed_49_3))
+
+        print('mant_add_signed_49_3[47:0]', mant_add_signed_49_3[47:0])
 
         print('shift_amt_3', shift_amt_3)
-        print('c_mant_signed_shifted_27_3', repr(c_mant_signed_shifted_27_3))
-        print('p_mant_signed_shifted_49_3', repr(p_mant_signed_shifted_49_3))
+        print('temp_exp_3', int(temp_exp_3))
+        print('shifted_exp_3', int(shifted_exp_3))
         print('mant_add_signed_49_3', mant_add_signed_49_3)
         print('mant_add_shifted_49_3', mant_add_shifted_49_3)
         print('mant_add_shifted_49_3[48:24]', mant_add_shifted_49_3[48:24])
@@ -234,21 +300,30 @@ class FloatFMA:
         # final output mux
         if case_1 or case_2 or case_4:
             ret_sign = ret_sign_case_124
-            ret_exp_signed = ret_exp_case_124
-            ret_mant = ret_mant_case_124
+            ret_exp_signed_before_inf = ret_exp_case_124
+            ret_mant_before_inf = ret_mant_case_124
         elif case_3:
             ret_sign = ret_sign_case_3
-            ret_exp_signed = ret_exp_case_3
-            ret_mant = ret_mant_case_3
+            ret_exp_signed_before_inf = ret_exp_case_3
+            ret_mant_before_inf = ret_mant_case_3
         else:
             ret_sign = ret_sign_case_5
-            ret_exp_signed = ret_exp_case_5
-            ret_mant = ret_mant_case_5
+            ret_exp_signed_before_inf = ret_exp_case_5
+            ret_mant_before_inf = ret_mant_case_5
+
+        # Overflow case: make inf
+        if ret_exp_signed_before_inf >= sbit(fp32_config.exponent_bits + 1 , bin((1 << fp32_config.exponent_bits) - 1)):
+            ret_exp_signed = sbit(fp32_config.exponent_bits, bin((fp32_config.exp_max + fp32_config.bias)))
+            ret_mant_before_inf = ubit(fp32_config.mantissa_bits, '0')
+        else:
+            ret_exp_signed = ret_exp_signed_before_inf
+            ret_mant_before_inf = ret_mant_before_inf
+
 
         if isnormal:
             ret_sign = ret_sign
             ret_exp_signed = ret_exp_signed
-            ret_mant = ret_mant
+            ret_mant = ret_mant_before_inf
         else:
             ret_sign = ret_sign_sp
             ret_exp_signed = ret_exp_sp
