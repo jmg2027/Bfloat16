@@ -27,6 +27,8 @@ class FloatFMA:
         ret_exp_sp = bit(1, '0')
         ret_mant_sp = bit(1, '0')
 
+        NAN_MANT = 0x7E_0000
+
         # Special cases
         #input
         isnormal = False
@@ -35,17 +37,17 @@ class FloatFMA:
         if isnan(self.a) or isnan(self.b) or isnan(self.c):
             ret_sign_sp = bit(1, '0')
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
-            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
+            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(NAN_MANT))
         # (inf * 0) + ? -> nan
         elif (isinf(self.a) and iszero(self.b)) or (isinf(self.b) and iszero(self.a)):
             ret_sign_sp = bit(1, '0')
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
-            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
+            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(NAN_MANT))
         # (inf * ?) + -inf, (-inf * ?) + inf -> nan
         elif (isinf(self.a) or isinf(self.b)) and isinf(self.c) and (a_sign ^ b_sign ^ c_sign):
             ret_sign_sp = bit(1, '0')
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
-            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(fp32_config.mant_max))
+            ret_mant_sp = bit(fp32_config.mantissa_bits, bin(NAN_MANT))
         # (inf * ?) + ? -> inf, (-inf * ?) + ? -> -inf
         elif (isinf(self.a) or isinf(self.b)):
             ret_sign_sp = a_sign ^ b_sign
@@ -281,24 +283,24 @@ class FloatFMA:
             ret_exp_case_3 = shifted_exp_3
         ret_sign_case_3 = bit(1, mant_add_29_3[28].bin)
 
-        print('c_mant_inv', repr(c_mant_inv))
-        print('p_mant_inv', repr(p_mant_inv))
-        print('c_mant_signed_shifted_29_3', repr(c_mant_signed_shifted_29_3))
-        print('p_mant_signed_shifted_50_3', repr(p_mant_signed_shifted_50_3[49:21]))
-        print('mant_add_29_3', repr(mant_add_29_3))
-        print('mant_add_50_3', repr(mant_add_50_3))
-        print('mant_add_signed_50_3', repr(mant_add_signed_50_3))
+        #print('c_mant_inv', repr(c_mant_inv))
+        #print('p_mant_inv', repr(p_mant_inv))
+        #print('c_mant_signed_shifted_29_3', repr(c_mant_signed_shifted_29_3))
+        #print('p_mant_signed_shifted_50_3', repr(p_mant_signed_shifted_50_3[49:21]))
+        #print('mant_add_29_3', repr(mant_add_29_3))
+        #print('mant_add_50_3', repr(mant_add_50_3))
+        #print('mant_add_signed_50_3', repr(mant_add_signed_50_3))
 
-        print('mant_add_signed_50_3[47:0]', mant_add_signed_50_3[47:0])
+        #print('mant_add_signed_50_3[47:0]', mant_add_signed_50_3[47:0])
 
-        print('shift_amt_3', shift_amt_3)
-        print('temp_exp_3', int(temp_exp_3))
-        print('shifted_exp_3', int(shifted_exp_3))
-        print('mant_add_signed_50_3', mant_add_signed_50_3)
-        print('mant_add_shifted_50_3', mant_add_shifted_50_3)
-        print('mant_add_shifted_50_3[48:24]', mant_add_shifted_50_3[48:24])
-        print('round_up_3', round_up_3)
-        print('mant_rounded_3', repr(mant_rounded_3))
+        #print('shift_amt_3', shift_amt_3)
+        #print('temp_exp_3', int(temp_exp_3))
+        #print('shifted_exp_3', int(shifted_exp_3))
+        #print('mant_add_signed_50_3', mant_add_signed_50_3)
+        #print('mant_add_shifted_50_3', mant_add_shifted_50_3)
+        #print('mant_add_shifted_50_3[48:24]', mant_add_shifted_50_3[48:24])
+        #print('round_up_3', round_up_3)
+        #print('mant_rounded_3', repr(mant_rounded_3))
 
         # final output mux
         if case_1 or case_2 or case_4:
@@ -317,42 +319,50 @@ class FloatFMA:
         # Overflow case: make inf
         if ret_exp_signed_before_inf >= sbit(fp32_config.exponent_bits + 1 , bin((1 << fp32_config.exponent_bits) - 1)):
             ret_exp_signed = sbit(fp32_config.exponent_bits, bin((fp32_config.exp_max + fp32_config.bias)))
-            ret_mant_before_inf = ubit(fp32_config.mantissa_bits, '0')
+            ret_mant_normal = ubit(fp32_config.mantissa_bits, '0')
         else:
             ret_exp_signed = ret_exp_signed_before_inf
-            ret_mant_before_inf = ret_mant_before_inf
+            ret_mant_normal = ret_mant_before_inf
 
 
         if isnormal:
             ret_sign = ret_sign
             ret_exp_signed = ret_exp_signed
-            ret_mant = ret_mant_before_inf
+            ret_mant = ret_mant_normal
         else:
             ret_sign = ret_sign_sp
             ret_exp_signed = ret_exp_sp
             ret_mant = ret_mant_sp
 
-        print('exp_diff', int(exp_diff))
+        #print('exp_diff', int(exp_diff))
 
-        print('case_1', case_1)
-        print('case_2', case_2)
-        print('case_3', case_3)
-        print('case_4', case_4)
-        print('case_5', case_5)
+        #print('case_1', case_1)
+        #print('case_2', case_2)
+        #print('case_3', case_3)
+        #print('case_4', case_4)
+        #print('case_5', case_5)
 
-        print('ret_exp_case_5', int(ret_exp_case_5))
-        print('ret_exp_case_124', int(ret_exp_case_124))
-        print('ret_exp_case_3', int(ret_exp_case_3))
+        #print('ret_exp_case_5', int(ret_exp_case_5))
+        #print('ret_exp_case_124', int(ret_exp_case_124))
+        #print('ret_exp_case_3', int(ret_exp_case_3))
 
-        print('ret_mant_case_5', repr(ret_mant_case_5))
-        print('ret_mant_case_124', repr(ret_mant_case_124))
-        print('ret_mant_case_3', repr(ret_mant_case_3))
+        #print('ret_mant_case_5', repr(ret_mant_case_5))
+        #print('ret_mant_case_124', repr(ret_mant_case_124))
+        #print('ret_mant_case_3', repr(ret_mant_case_3))
 
-        print('ret_sign_case_5', ret_sign_case_5)
-        print('ret_sign_case_124', ret_sign_case_124)
-        print('ret_sign_case_3', ret_sign_case_3)
+        #print('ret_mant_case_5', hex(int(ret_mant_case_5)))
+        #print('ret_mant_case_124', hex(int(ret_mant_case_124)))
+        #print('ret_mant_case_3', hex(int(ret_mant_case_3)))
+
+        #print('ret_sign_case_5', ret_sign_case_5)
+        #print('ret_sign_case_124', ret_sign_case_124)
+        #print('ret_sign_case_3', ret_sign_case_3)
 
         # Remove sign bit from exponent
         ret_exp = bit(fp32_config.exponent_bits, ret_exp_signed.bin)
+
+        #print('ret_sign', ret_sign)
+        #print('ret_exp ', ret_exp )
+        #print('ret_mant', ret_mant)
 
         return ret_sign, ret_exp, ret_mant
