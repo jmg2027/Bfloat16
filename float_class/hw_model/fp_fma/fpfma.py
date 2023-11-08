@@ -248,12 +248,9 @@ class FloatFMA:
         
 
         mant_add_29_3 = p_mant_signed_shifted_50_3[49:21] + c_mant_signed_shifted_29_3
-        mant_add_50_test = p_mant_signed_shifted_50_3 + c_mant_signed_shifted_29_3.concat(sbit(21, '0'))
-        # Precision hurts
-        #mant_add_signed_50_test = -mant_add_50_test if mant_add_50_test[49].bin == '1' else mant_add_50_test
-        #print(mant_add_signed_50_test)
-        mant_add_signed_29_3 = -mant_add_29_3 if mant_add_29_3[28].bin == '1' else mant_add_29_3
-        mant_add_signed_50_3 = mant_add_signed_29_3.concat(sbit(21, p_mant_signed_shifted_50_3[20:0].bin))
+        mant_add_50_3 = mant_add_29_3.concat(sbit(21, p_mant_signed_shifted_50_3[20:0].bin))
+        mant_add_signed_50_3 = -mant_add_50_3 if mant_add_29_3[28].bin == '1' else mant_add_50_3
+        
         
         
         shift_amt_3 = hwutil.leading_zero_count(mant_add_signed_50_3[48:0])
@@ -275,9 +272,6 @@ class FloatFMA:
         round_up_3 = (lsb_3 & round_3) | (round_3 & sticky_3)
         mant_rounded_3 = mant_add_shifted_50_3[49:25] + round_up_3
 
-        #print(int((mant_add_signed_50_test << shift_amt_3)[49:25]))
-        #print(int(mant_add_shifted_50_3[49:25] ))
-
         # postnormalize
         if mant_rounded_3 == ubit(mant_rounded_3.bitwidth, bin((1 << mant_rounded_3.bitwidth) - 1)):
             ret_mant_case_3 = bit(precision_bit - 1, '0')
@@ -292,7 +286,7 @@ class FloatFMA:
         print('c_mant_signed_shifted_29_3', repr(c_mant_signed_shifted_29_3))
         print('p_mant_signed_shifted_50_3', repr(p_mant_signed_shifted_50_3[49:21]))
         print('mant_add_29_3', repr(mant_add_29_3))
-        print('mant_add_signed_29_3', repr(mant_add_signed_29_3))
+        print('mant_add_50_3', repr(mant_add_50_3))
         print('mant_add_signed_50_3', repr(mant_add_signed_50_3))
 
         print('mant_add_signed_50_3[47:0]', mant_add_signed_50_3[47:0])
