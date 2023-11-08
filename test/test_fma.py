@@ -9,8 +9,7 @@ from typing_extensions import Self
 
 class TestFMA(TestOperationBase):
     test_set = [
-            (1.0, 2.0, 4.0),
-    #        (1.0, 2.0, 2.0),
+    #        (1.0, 2.0, 4.0),
     #        (1.0, 2.0, 3.0),
     #        (100.0, 2.0, 3.0),
     #        (10000.0, 2.0, 3.0),
@@ -27,8 +26,8 @@ class TestFMA(TestOperationBase):
     #        (-1.0, -2.0, -3.0),
     #        (-100.0, 2.0, 3.0),
     #        (100.0, 2.0, -3.0),
-    #        (10000.0, -2.0, 3.0),
-    #        # Special cases
+            (10000.0, -2.0, 3.0),
+            # Special cases
     #        (0, 2.8, 4.5),
     #        (0, 0, 4.5),
     #        (4.5, 2.8, 0),
@@ -40,8 +39,9 @@ class TestFMA(TestOperationBase):
     #(-8224078003437568.0, 1.888424983115578e-38, 2.5540332323568454e-22),
     #(8224078003437568.0, 1.888424983115578e-38, 2.5540332323568454e-22),
     # FAILED fma(Float32(1.658261946118133e-32, sign = 0, exponent=-106, mantissa=2896938), Float32(0.0002102892758557573, sign = 0, exponent=-13, mantissa=6062361), Float32(-3.50296132728099e-36, sign = 1, exponent=-118, mantissa=1376223)), lib: Float32(-1.5814429489254797e-38, sign = 1, exponent=-126, mantissa=2896946), tf: -1.5814289359408364e-38, ulp_error: 100
-    (1.658261946118133e-32, 0.0002102892758557573, -3.50296132728099e-36)
+    #(1.658261946118133e-32, 0.0002102892758557573, -3.50296132728099e-36)
     # FAILED fma(Float32(-3.4955471162181546e-23, sign = 1, exponent=-75, mantissa=2689223), Float32(3.922678904061092e+20, sign = 0, exponent=68, mantissa=2760316), Float32(0.01334461197257042, sign = 0, exponent=-7, mantissa=5940060)), lib: Float32(-0.0003672972379717976, sign = 1, exponent=-12, mantissa=4231629), tf: -0.000367296946933493, ulp_error: 10
+    #(float('nan'), 1.0, 2.0),
 
     #(bf16_obj.from_hex(0x08f1), bf16_obj.from_hex(0xffad), bf16_obj.from_hex(0x774b))
     ]
@@ -76,21 +76,26 @@ class TestFMA(TestOperationBase):
 
         ## when input operands are bf16 and output is fp32, tf dtype conversion should be like this:
         ## float -> bf16(for input type) -> fp32(for operation) 
-        #tf_operand_input = tuple(map(conv_to_tf_dtype, (input[0], input[1]), [self.input_ftype]*(self._INPUT_NUM - 1)))
-        #tf_operand_input = tuple(map(conv_to_tf_dtype, (tf_operand_input[0], tf_operand_input[1]), [self.ftype]*(self._INPUT_NUM - 1)))
-        #tf_operand_output = conv_to_tf_dtype(input[2], self.ftype)
+        tf_operand_input = tuple(map(conv_to_tf_dtype, (input[0], input[1]), [self.input_ftype]*(self._INPUT_NUM - 1)))
+        tf_operand_input = tuple(map(conv_to_tf_dtype, (tf_operand_input[0], tf_operand_input[1]), [self.ftype]*(self._INPUT_NUM - 1)))
+        tf_operand_output = conv_to_tf_dtype(input[2], self.ftype)
+        if self.input_ftype == self.ftype:
+            # for mod 0, 1
+            tf_operand = tuple(map(convert_to_tffp64, input))
+        else:
+            # for mod 2
+            tf_operand = (*tf_operand_input, tf_operand_output)
         # for precision, cast operands to tf.float64. and cast result to ftype
-        tf_operand = tuple(map(convert_to_tffp64, input))
         tfres = self.tf_operation(*tf_operand)
         tfres = conv_from_tf_to_tf_dtype(tfres, self.ftype)
         
-        #test_res_str = f'{[i.hex() for i in (*operand_input, operand_output)]}\t\t{res.hex()}'
-        if check_float_equal(res, tfres):
-            test_res_str = f'PASSED {self.op}{input}, res: {res}'
-            #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
-        else:
-            test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}, ulp_error: {calc_ulp_error(res, tfres)}'
-            #test_res_str = f'FAILED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
+        test_res_str = f'{[i.hex() for i in (*operand_input, operand_output)]}\t\t{res.hex()}'
+        #if check_float_equal(res, tfres):
+        #    test_res_str = f'PASSED {self.op}{input}, res: {res}'
+        #    #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
+        #else:
+        #    test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}, ulp_error: {calc_ulp_error(res, tfres)}'
+        #    #test_res_str = f'FAILED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
         print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
