@@ -111,9 +111,11 @@ class BitString:
 
     def __setitem__(self, index: int, value: str) -> None:
         if isinstance(index, int):
-            if value not in '01':
-                raise BitStrValueError('INVALID_BIT', value)
-            self.bin = self.bin[:index] + value + self.bin[index + 1]
+            value_proc = self._binary_string_process(value)
+            if value_proc not in '01':
+                raise BitStrValueError('INVALID_BIT', value_proc)
+            #self.bin = self.bin[:len(self.bin) - index - 1] + value_proc + self.bin[len(self.bin) - index:]
+            self.bin = self.bin[:self.bitwidth - index - 1] + value_proc + self.bin[self.bitwidth - index:]
         else:
             raise BitStrTypeError('INVALID_INDEX', (self, index))
 
