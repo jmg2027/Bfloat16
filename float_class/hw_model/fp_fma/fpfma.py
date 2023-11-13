@@ -14,14 +14,27 @@ class FloatFMA:
         a_sign, a_exp, a_mant_nohidden = self.a
         b_sign, b_exp, b_mant_nohidden = self.b
         c_sign, c_exp, c_mant_nohidden = self.c
+        p_sign = a_sign ^ b_sign
+
         a_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{a_mant_nohidden}')
         b_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{b_mant_nohidden}')
-        c_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{c_mant_nohidden}')
+        if iszero(self.c):
+            c_mant_us = ubit(fp32_config.mantissa_bits + 1, f'0')
+        else:
+            c_mant_us = ubit(fp32_config.mantissa_bits + 1, f'1{c_mant_nohidden}')
 
-        a_exp_signed = sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
-        b_exp_signed = sbit(b_exp.bitwidth + 2, f'0{b_exp.bin}')
-        c_exp_signed = sbit(c_exp.bitwidth + 2, f'0{c_exp.bin}')
-        bias_signed = sbit(a_exp.bitwidth + 2, bin(fp32_config.bias))
+        #a_exp_signed = sbit(a_exp.bitwidth + 2, f'0{a_exp.bin}')
+        #b_exp_signed = sbit(b_exp.bitwidth + 2, f'0{b_exp.bin}')
+        #c_exp_signed = sbit(c_exp.bitwidth + 2, f'0{c_exp.bin}')
+        #bias_signed = sbit(a_exp.bitwidth + 2, bin(fp32_config.bias))
+        a_exp_signed = a_exp
+        b_exp_signed = b_exp
+        c_exp_signed = c_exp
+        bias_signed = sbit(a_exp.bitwidth, bin(fp32_config.bias))
+
+        p_exp_signed_overflow = sbit(10, a_exp_signed.bin) + sbit(10, b_exp_signed.bin) - bias_signed
+        p_inf = int(p_exp_signed_overflow) > 254
+        p_zero = int(p_exp_signed_overflow) < 1
 
         ret_sign_sp = bit(1, '0')
         ret_exp_sp = bit(1, '0')
@@ -44,12 +57,12 @@ class FloatFMA:
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
             ret_mant_sp = bit(fp32_config.mantissa_bits, bin(NAN_MANT))
         # (inf * ?) + -inf, (-inf * ?) + inf -> nan
-        elif (isinf(self.a) or isinf(self.b)) and isinf(self.c) and (a_sign ^ b_sign ^ c_sign):
+        elif p_inf and isinf(self.c) and (a_sign ^ b_sign ^ c_sign):
             ret_sign_sp = bit(1, '0')
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
             ret_mant_sp = bit(fp32_config.mantissa_bits, bin(NAN_MANT))
         # (inf * ?) + ? -> inf, (-inf * ?) + ? -> -inf
-        elif (isinf(self.a) or isinf(self.b)):
+        elif p_inf:
             ret_sign_sp = a_sign ^ b_sign
             ret_exp_sp = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
             ret_mant_sp = bit(fp32_config.mantissa_bits, fp32_config.mantissa_bits * '0')
@@ -73,15 +86,20 @@ class FloatFMA:
         precision_bit = fp32_config.mantissa_bits + 1
 
         # Sign precalculation
-        p_sign = a_sign ^ b_sign
+        
         fma_sign = c_sign ^ p_sign
 
         # Exponent calculation
-        p_exp_signed = a_exp_signed + b_exp_signed - bias_signed
-        exp_diff = p_exp_signed - c_exp_signed
+        # p_exp_signed ranges from 0 to 255 because of denormalized number is handled as zero
+        # p_exp < 1
+        p_exp_signed = bit(8, '0') if p_zero else bit(8, p_exp_signed_overflow[7:0].bin)
+        exp_diff = sbit(9, f'0{p_exp_signed[7:0]}') - sbit(9, f'0{c_exp_signed}')
+        #print(sbit(9, f'0{p_exp_signed[7:0]}'))
+        #print(sbit(9, f'0{c_exp_signed}'))
+        #print(exp_diff)
 
         # Product mantissa
-        p_mant_us = a_mant_us * b_mant_us
+        p_mant_us = bit(48, '0') if p_zero else (a_mant_us * b_mant_us)
 
         # Define 5 cases of FMA
         # Case 1) P_exp – C_exp ≥ 24, 49bit adder, C_man => sticky
@@ -90,13 +108,14 @@ class FloatFMA:
         # Case 4) -24 ≤ P_exp – C_exp ≤ -2, 25bit adder, R sticky
         # Case 5) P_exp – C_exp < -24, R, sticky
 
+        # for special case when c is zero, case_5 is selected
         case_1 = int(exp_diff) >=24
         case_2 = 24 > int(exp_diff) >= 2
         #case_3 = 2 > int(exp_diff) > -2
         #case_4 = -2 >= int(exp_diff) >= -24
-        case_3 = 2 > int(exp_diff) >= -2
+        case_3 = 2 > int(exp_diff) >= -2 and not iszero(self.c)
         case_4 = -2 > int(exp_diff) >= -24
-        case_5 = -24 > int(exp_diff)
+        case_5 = (-24 > int(exp_diff)) or iszero(self.c)
 
         # 3 path design
         # Case 5
@@ -117,9 +136,12 @@ class FloatFMA:
         
         # postnormalize
         ret_mant_rounded_5 = ubit(c_mant_us.bitwidth, bin(int(c_mant_us) + (-int(round_up_5) if fma_sign else int(round_up_5))))
-        if c_mant_us == bit(c_mant_us.bitwidth, bin((1 << c_mant_us.bitwidth) - 1)):
+        if ret_mant_rounded_5 == bit(c_mant_us.bitwidth, bin((1 << c_mant_us.bitwidth) - 1)):
             ret_mant_case_5 = bit(precision_bit - 1, '0')
-            ret_exp_case_5 = (c_exp_signed + sbit(2, '01'))
+            ret_exp_case_5 = (c_exp_signed + bit(1, '1'))
+            # check overflow
+            if int(c_exp_signed) >= 254:
+                ret_exp_case_5 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
         else:
             ret_mant_case_5 = ret_mant_rounded_5[precision_bit-2:0]
             ret_exp_case_5 = c_exp_signed
@@ -177,15 +199,23 @@ class FloatFMA:
         if mant_add_before_norm_124[47].bin == '1':
             # 1xx.xxx...
             mant_add_124 = mant_add_before_norm_124
-            temp_norm_exp_124 = temp_exp_124 + sbit(2, '01') 
+            temp_norm_exp_124 = temp_exp_124 + bit(1, '1') 
+            # check overflow
+            if int(temp_exp_124) >= 254:
+                mant_add_124 = sbit(mant_add_124.bitwidth, '00')
+                temp_norm_exp_124 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
         elif mant_add_before_norm_124[46].bin == '1':
             # 01x.xxx...
             mant_add_124 = sbit(mant_add_before_norm_124.bitwidth, f'{mant_add_before_norm_124[47:0].bin}0')
             temp_norm_exp_124 = temp_exp_124
         else:
             # 001.xxx...
+            # no overflow case: if c_exp is inf then alredy inf
             mant_add_124 = sbit(mant_add_before_norm_124.bitwidth, f'{mant_add_before_norm_124[46:0].bin}00')
-            temp_norm_exp_124 = temp_exp_124 - sbit(1, '1')
+            temp_norm_exp_124 = temp_exp_124 - bit(1, '1')
+        
+        #print("mant_add_before_norm_124[47].bin == '1'", mant_add_before_norm_124[47].bin == '1')
+        #print("mant_add_before_norm_124[46].bin == '1'", mant_add_before_norm_124[46].bin == '1')
 
         #print('p_mant_signed_49_pre_124', repr(p_mant_signed_49_pre_124))
         #print('c_mant_signed_25_pre_124', repr(c_mant_signed_26_pre_124))
@@ -205,7 +235,10 @@ class FloatFMA:
         # postnormalize
         if mant_rounded_124 == sbit(mant_rounded_124.bitwidth, bin((1 << mant_rounded_124.bitwidth) - 1)):
             ret_mant_case_124 = bit(precision_bit - 1, '0')
-            ret_exp_case_124 = (temp_norm_exp_124 + sbit(2, '01'))
+            ret_exp_case_124 = (temp_norm_exp_124 + bit(1, '1'))
+            # check overflow
+            if int(temp_norm_exp_124) >= 254:
+                ret_exp_case_124 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
         else:
             ret_mant_case_124 = bit(precision_bit-1, mant_rounded_124[precision_bit-2:0].bin)
             ret_exp_case_124 = temp_norm_exp_124
@@ -237,6 +270,11 @@ class FloatFMA:
         # xxx., exp = 2
         # scxx.xx... (50bits)
         c_mant_inv = -sbit(27, f'000{c_mant_us.bin}') if c_sign.bin == '1' else sbit(27, f'000{c_mant_us.bin}')
+        #v = bit(25, f'0{c_mant_us.bin}')
+        #mask = bit(25, f'{c_sign.bin}{c_exp.bin}{c_mant_nohidden.bin}')
+        #ttt = sbit(25, f'{((v^mask) - mask).bin}')
+        #c_mant_inv = sbit(27, f'{ttt.bin}')
+
         p_mant_inv = -sbit(50, f'00{p_mant_us.bin}') if p_sign.bin == '1' else sbit(50, f'00{p_mant_us.bin}')
         c_mant_signed_29_3 = sbit(29, f'{c_mant_inv.bin}00')
         p_mant_signed_50_3 = p_mant_inv
@@ -259,12 +297,12 @@ class FloatFMA:
 
         if int(exp_diff) == 1:
             # p > c
-            temp_exp_3 = p_exp_signed + sbit(2, bin(2))
+            temp_exp_3 = bit(9, (p_exp_signed + bit(2, bin(2))).bin)
         else:
             # c >= p
-            temp_exp_3 = c_exp_signed + sbit(2, bin(2))
+            temp_exp_3 = bit(9, (c_exp_signed + bit(2, bin(2))).bin)
 
-        shifted_exp_3 = temp_exp_3 - sbit(fp32_config.exponent_bits + 2, bin(shift_amt_3))
+        shifted_exp_3 = temp_exp_3 - bit(fp32_config.exponent_bits, bin(shift_amt_3))
         mant_add_shifted_50_3 = ubit(mant_add_signed_50_3.bitwidth, (mant_add_signed_50_3 << shift_amt_3).bin)
 
         # round
@@ -277,7 +315,10 @@ class FloatFMA:
         # postnormalize
         if mant_rounded_3 == ubit(mant_rounded_3.bitwidth, bin((1 << mant_rounded_3.bitwidth) - 1)):
             ret_mant_case_3 = bit(precision_bit - 1, '0')
-            ret_exp_case_3 = (shifted_exp_3 + sbit(2, '01'))
+            ret_exp_case_3 = (shifted_exp_3 + bit(1, '1'))
+            # check overflow
+            if int(shifted_exp_3) >= 254:
+                ret_exp_case_3 = bit(fp32_config.exponent_bits, bin(fp32_config.exp_max + fp32_config.bias))
         else:
             ret_mant_case_3 = mant_rounded_3[precision_bit-2:0]
             ret_exp_case_3 = shifted_exp_3
@@ -304,30 +345,21 @@ class FloatFMA:
 
         # final output mux
         if case_1 or case_2 or case_4:
-            ret_sign = ret_sign_case_124
-            ret_exp_signed_before_inf = ret_exp_case_124
-            ret_mant_before_inf = ret_mant_case_124
+            ret_sign_normal = ret_sign_case_124
+            ret_exp_normal = ret_exp_case_124
+            ret_mant_normal = ret_mant_case_124
         elif case_3:
-            ret_sign = ret_sign_case_3
-            ret_exp_signed_before_inf = ret_exp_case_3
-            ret_mant_before_inf = ret_mant_case_3
+            ret_sign_normal = ret_sign_case_3
+            ret_exp_normal = ret_exp_case_3
+            ret_mant_normal = ret_mant_case_3
         else:
-            ret_sign = ret_sign_case_5
-            ret_exp_signed_before_inf = ret_exp_case_5
-            ret_mant_before_inf = ret_mant_case_5
-
-        # Overflow case: make inf
-        if ret_exp_signed_before_inf >= sbit(fp32_config.exponent_bits + 1 , bin((1 << fp32_config.exponent_bits) - 1)):
-            ret_exp_signed = sbit(fp32_config.exponent_bits, bin((fp32_config.exp_max + fp32_config.bias)))
-            ret_mant_normal = ubit(fp32_config.mantissa_bits, '0')
-        else:
-            ret_exp_signed = ret_exp_signed_before_inf
-            ret_mant_normal = ret_mant_before_inf
-
+            ret_sign_normal = ret_sign_case_5
+            ret_exp_normal = ret_exp_case_5
+            ret_mant_normal = ret_mant_case_5
 
         if isnormal:
-            ret_sign = ret_sign
-            ret_exp_signed = ret_exp_signed
+            ret_sign = ret_sign_normal
+            ret_exp_signed = ret_exp_normal
             ret_mant = ret_mant_normal
         else:
             ret_sign = ret_sign_sp
