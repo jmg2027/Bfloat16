@@ -50,7 +50,7 @@ class FloatSummation:
     FIX: ACC can be FP32/BF16, output also
     '''
     
-    align_bitwidth = 32
+    align_bitwidth = 30
     #align_bitwidth = 64
     vector_element_num = 32
     #vector_element_num = 4
@@ -148,19 +148,19 @@ class FloatSummation:
             # JMG
             #print(sign_v)
             sign_acc, exp_acc, mant_nohidden_acc = self.acc
-            exp_acc_signed = sbit(fp32_config.exponent_bits + 2, f'0{exp_acc.bin}')
+            exp_acc_signed = bit(fp32_config.exponent_bits, f'{exp_acc.bin}')
             # Treat acc as fp32 in module -> mantissa to 24bits
-            mant_acc_us = ubit(fp32_config.mantissa_bits + 1, f'1{mant_nohidden_acc.bin}')
+            mant_acc_us = ubit(fp32_config.mantissa_bits + 1, f'{exp_acc_signed.reduceor()}{mant_nohidden_acc.bin}')
             #print('mant_nohidden_acc', repr(mant_nohidden_acc))
             #print('mant_acc_us', repr(mant_acc_us))
 
             # Process elements
             # Exponent to signed bitstring
             # FIX: For 0 input, use 0 as hidden bit
-            exp_v_signed: List[sbit] = []
+            exp_v_signed: List[bit] = []
             hidden_bit: List[bit] = []
             for i in exp_v:
-                exp_v_signed.append(sbit(fp32_config.exponent_bits + 2, f'0{i}'))
+                exp_v_signed.append(bit(fp32_config.exponent_bits, f'{i}'))
                 hidden_bit.append(i.reduceor())
             
             # Adjust hidden bit to mantissa
@@ -183,6 +183,7 @@ class FloatSummation:
                 element_num_shift = element_num_shift >> 1
                 tree_level += 1
 
+            '''
             # Exponent max tree
             # Make zero initialized dual list of tree
             # [[0] * 2**(tree_level), [0] * 2**(tree_level-1), ..., [0]]
@@ -198,6 +199,134 @@ class FloatSummation:
                     exp_max_tree[i+1][j] = exp_max_tree[i][2*j] if (exp_max_tree[i][2*j] > exp_max_tree[i][2*j+1]) else exp_max_tree[i][2*j+1]
             exp_max_vector = exp_max_tree[tree_level][0]
             o_max_exp = exp_max_vector if exp_max_vector > exp_acc_signed else exp_acc_signed
+            '''
+            mask = bit(33, bin(0x1ffffffff))
+            val0 = bit(33, '0')
+            val1 = bit(33, '0')
+            val2 = bit(33, '0')
+            val3 = bit(33, '0')
+            val4 = bit(33, '0')
+            val5 = bit(33, '0')
+            val6 = bit(33, '0')
+            val7 = bit(33, '0')
+            for i in range(len(exp_v_signed)):
+                val0[i] = exp_v_signed[i][0].bin
+                val1[i] = exp_v_signed[i][1].bin
+                val2[i] = exp_v_signed[i][2].bin
+                val3[i] = exp_v_signed[i][3].bin
+                val4[i] = exp_v_signed[i][4].bin
+                val5[i] = exp_v_signed[i][5].bin
+                val6[i] = exp_v_signed[i][6].bin
+                val7[i] = exp_v_signed[i][7].bin
+            val0[32] = exp_acc_signed[0].bin
+            val1[32] = exp_acc_signed[1].bin
+            val2[32] = exp_acc_signed[2].bin
+            val3[32] = exp_acc_signed[3].bin
+            val4[32] = exp_acc_signed[4].bin
+            val5[32] = exp_acc_signed[5].bin
+            val6[32] = exp_acc_signed[6].bin
+            val7[32] = exp_acc_signed[7].bin
+
+            ans0 = bit(33, '0')
+            ans1 = bit(33, '0')
+            ans2 = bit(33, '0')
+            ans3 = bit(33, '0')
+            ans4 = bit(33, '0')
+            ans5 = bit(33, '0')
+            ans6 = bit(33, '0')
+            ans7 = bit(33, '0')
+            for i in range(len(exp_v_signed)):
+                ans0[i] = (~(mask[i] ^ val7[i]) & (mask[i])).bin
+            mask = ans0 if ans0 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans1[i] = (~(mask[i] ^ val6[i]) & (mask[i])).bin
+            mask = ans1 if ans1 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans2[i] = (~(mask[i] ^ val5[i]) & (mask[i])).bin
+            mask = ans2 if ans2 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans3[i] = (~(mask[i] ^ val4[i]) & (mask[i])).bin
+            mask = ans3 if ans3 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans4[i] = (~(mask[i] ^ val3[i]) & (mask[i])).bin
+            mask = ans4 if ans4 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans5[i] = (~(mask[i] ^ val2[i]) & (mask[i])).bin
+            mask = ans5 if ans5 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans6[i] = (~(mask[i] ^ val1[i]) & (mask[i])).bin
+            mask = ans6 if ans6 != bit(1, '0') else mask
+            for i in range(len(exp_v_signed)):
+                ans7[i] = (~(mask[i] ^ val0[i]) & (mask[i])).bin
+            ans7 = mask if ans7 == bit(1, '0') else ans7
+
+            if ans7[0] == bit(1, '1'):
+                o_max_exp = exp_v_signed[0]
+            elif ans7[1] == bit(1, '1'):
+                o_max_exp = exp_v_signed[1]
+            elif ans7[2] == bit(1, '1'):
+                o_max_exp = exp_v_signed[2]
+            elif ans7[3] == bit(1, '1'):
+                o_max_exp = exp_v_signed[3]
+            elif ans7[4] == bit(1, '1'):
+                o_max_exp = exp_v_signed[4]
+            elif ans7[5] == bit(1, '1'):
+                o_max_exp = exp_v_signed[5]
+            elif ans7[6] == bit(1, '1'):
+                o_max_exp = exp_v_signed[6]
+            elif ans7[7] == bit(1, '1'):
+                o_max_exp = exp_v_signed[7]
+            elif ans7[8] == bit(1, '1'):
+                o_max_exp = exp_v_signed[8]
+            elif ans7[9] == bit(1, '1'):
+                o_max_exp = exp_v_signed[9]
+            elif ans7[10] == bit(1, '1'):
+                o_max_exp = exp_v_signed[10]
+            elif ans7[11] == bit(1, '1'):
+                o_max_exp = exp_v_signed[11]
+            elif ans7[12] == bit(1, '1'):
+                o_max_exp = exp_v_signed[12]
+            elif ans7[13] == bit(1, '1'):
+                o_max_exp = exp_v_signed[13]
+            elif ans7[14] == bit(1, '1'):
+                o_max_exp = exp_v_signed[14]
+            elif ans7[15] == bit(1, '1'):
+                o_max_exp = exp_v_signed[15]
+            elif ans7[16] == bit(1, '1'):
+                o_max_exp = exp_v_signed[16]
+            elif ans7[17] == bit(1, '1'):
+                o_max_exp = exp_v_signed[17]
+            elif ans7[18] == bit(1, '1'):
+                o_max_exp = exp_v_signed[18]
+            elif ans7[19] == bit(1, '1'):
+                o_max_exp = exp_v_signed[19]
+            elif ans7[20] == bit(1, '1'):
+                o_max_exp = exp_v_signed[20]
+            elif ans7[21] == bit(1, '1'):
+                o_max_exp = exp_v_signed[21]
+            elif ans7[22] == bit(1, '1'):
+                o_max_exp = exp_v_signed[22]
+            elif ans7[23] == bit(1, '1'):
+                o_max_exp = exp_v_signed[23]
+            elif ans7[24] == bit(1, '1'):
+                o_max_exp = exp_v_signed[24]
+            elif ans7[25] == bit(1, '1'):
+                o_max_exp = exp_v_signed[25]
+            elif ans7[26] == bit(1, '1'):
+                o_max_exp = exp_v_signed[26]
+            elif ans7[27] == bit(1, '1'):
+                o_max_exp = exp_v_signed[27]
+            elif ans7[28] == bit(1, '1'):
+                o_max_exp = exp_v_signed[28]
+            elif ans7[29] == bit(1, '1'):
+                o_max_exp = exp_v_signed[29]
+            elif ans7[30] == bit(1, '1'):
+                o_max_exp = exp_v_signed[30]
+            elif ans7[31] == bit(1, '1'):
+                o_max_exp = exp_v_signed[31]
+            else:
+                o_max_exp = exp_acc_signed
+
 
             # Align shifter
             # Shift amount should be ceil(log2(align shifter width))
