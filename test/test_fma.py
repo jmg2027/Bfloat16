@@ -89,13 +89,13 @@ class TestFMA(TestOperationBase):
         tfres = self.tf_operation(*tf_operand)
         tfres = conv_from_tf_to_tf_dtype(tfres, self.ftype)
         
-        test_res_str = f'{[i.hex() for i in (*operand_input, operand_output)]}\t\t{res.hex()}'
-        #if check_float_equal(res, tfres):
-        #    test_res_str = f'PASSED {self.op}{input}, res: {res}'
-        #    #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
-        #else:
-        #    test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}, ulp_error: {calc_ulp_error(res, tfres)}'
-        #    #test_res_str = f'FAILED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
+        #test_res_str = f'{[i.hex() for i in (*operand_input, operand_output)]}\t\t{res.hex()}'
+        if check_float_equal(res, tfres):
+            test_res_str = f'PASSED {self.op}{input}, res: {res}'
+            #test_res_str = f'PASSED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
+        else:
+            test_res_str = f'FAILED {self.op}{input}, lib: {res}, tf: {tfres}, ulp_error: {calc_ulp_error(res, tfres)}'
+            #test_res_str = f'FAILED {self.op}{[i.hex() for i in (*operand_input, operand_output)]}, res: {res.hex()}'
         print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
