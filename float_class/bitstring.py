@@ -114,7 +114,6 @@ class BitString:
             value_proc = self._binary_string_process(value)
             if value_proc not in '01':
                 raise BitStrValueError('INVALID_BIT', value_proc)
-            #self.bin = self.bin[:len(self.bin) - index - 1] + value_proc + self.bin[len(self.bin) - index:]
             self.bin = self.bin[:self.bitwidth - index - 1] + value_proc + self.bin[self.bitwidth - index:]
         else:
             raise BitStrTypeError('INVALID_INDEX', (self, index))
@@ -128,11 +127,11 @@ class BitString:
 
     def _apply_extension(self, other: Self, operation: Callable[[Self, Self], Self], result_bitwidth: int) -> Self:
         a = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, self.bin))
-        b = self.__class__(result_bitwidth, self._sign_extend(result_bitwidth, other.bin))
+        b = other.__class__(result_bitwidth, other._sign_extend(result_bitwidth, other.bin))
         result: Self = operation(a, b)
         if len(result.bin) > result_bitwidth:
             logger.warning(f'{a} and {b} Overflow occurred in BitString operation.')
-        sign_extended_result: str = self._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
+        sign_extended_result: str = result._sign_extend(result_bitwidth, result.bin[-result_bitwidth:])
         c = self.__class__(result_bitwidth, sign_extended_result)
         return c
 
@@ -219,7 +218,7 @@ class BitString:
         """
         Two's complement
         """
-        return ~self + self.__class__(self.bitwidth, '1')
+        return self.__class__(self.bitwidth, (~self + self.__class__(self.bitwidth, '1')).bin)
 
     def __invert__(self) -> Self:
         """
@@ -339,13 +338,13 @@ class BitString:
 
     def __add__(self, other: Self) -> Self:
         self._check_two_bitstring(other)
-        result_bitwidth = max(self.bitwidth, other.bitwidth)
+        result_bitwidth = max(self.bitwidth, other.bitwidth) + 1
         op: Callable[[Self, Self], Self]= lambda a, b: self.add_bitstring(a, b)
         return self._apply_extension(other, op, result_bitwidth)
 
     def __sub__(self, other: Self) -> Self:
         self._check_two_bitstring(other)
-        result_bitwidth: int = max(self.bitwidth, other.bitwidth)
+        result_bitwidth: int = max(self.bitwidth, other.bitwidth) + 1
         op: Callable[[Self, Self], Self] = lambda a, b: self.add_bitstring(a, -b)
         return self._apply_extension(other, op, result_bitwidth)
     
@@ -425,7 +424,7 @@ class SignedBitString(BitString):
             return int(self.bin, 2)
 
     def __hex__(self) -> str:
-        return hex(int(self))
+        return hex(int(self.bin, 2))
 
 UnsignedBitString: TypeAlias = BitString
 
