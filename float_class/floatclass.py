@@ -374,7 +374,7 @@ class Bfloat16(FloatBase):
             # decompose vector and acc
             acc_bit = acc.decompose()
             vector_bit = [e.decompose() for e in v]
-            summation = hw_model.Summation(vector_bit, acc_bit)
+            summation = hw_model.Summation(vector_bit, acc_bit, mod)
             acc_bit = summation.excute()
             # compose acc
             acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
@@ -458,7 +458,8 @@ class Float32(FloatBase):
         return result
 
     @classmethod
-    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], mod = 0) -> Union['Bfloat16', 'Float32']:
+    #def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], mod = 0) -> Union['Bfloat16', 'Float32']:
+    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], acc_input = 0.0, mod = 0) -> Union['Bfloat16', 'Float32']:
         #        vector input   scalar input   output
         # mod 0: fp32, fp32, fp32
         # mod 1: bf16, bf16, fp32
@@ -474,17 +475,20 @@ class Float32(FloatBase):
             for v in vl:
                 if mod == 0:
                     if not isinstance(v, cls):
-                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list), expected_type=cls)
                 else:
                     if not isinstance(v, Bfloat16):
-                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list))
+                        raise FloatTypeError('INVALID_OPERAND', value = (vector_list), expected_type=Bfloat16)
         result = Float32(0, 0, 0)
         if mod == 0:
             acc = cls(0, -126, 0)
+            acc = acc.from_float(acc_input)
         elif mod == 1:
             acc = Bfloat16(0, -126, 0)
+            acc = acc.from_float(acc_input)
         elif mod == 2:
             acc = cls(0, -126, 0)
+            acc = acc.from_float(acc_input)
         else:
             raise FloatTypeError('INVALID_MOD', value = mod)
         for v in vector_list:
@@ -502,7 +506,8 @@ class Float32(FloatBase):
                 v = [bf16_to_fp32(e) for e in v]
             acc_bit = acc.decompose()
             vector_bit = [e.decompose() for e in v]
-            summation = hw_model.Summation(vector_bit, acc_bit)
+            #summation = hw_model.Summation(vector_bit, acc_bit)
+            summation = hw_model.Summation(vector_bit, acc_bit, mod)
             acc_bit = summation.excute()
             summation.set_acc(acc_bit)
             acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
