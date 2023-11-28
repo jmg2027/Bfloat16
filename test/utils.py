@@ -100,7 +100,6 @@ def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
     ulp_error = calc_ulp_error(res1, res2)
     # ulp error under 2
-    
     if ulp_error <= 1:
         return True
     else:
@@ -150,7 +149,7 @@ def random_fp32(exp_min: int = -10, exp_max: int = 10) -> fp32:
     rand_exp = random.randint(min_exp, max_exp)
     min_mant = 0
     max_mant = fp32_config.mant_max
-    if rand_exp == 0:
+    if rand_exp == -127:
         rand_mant = min_mant
     else:
         rand_mant = random.randint(min_mant, max_mant)
