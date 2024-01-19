@@ -95,6 +95,12 @@ def cast_float(frepr: TestInputT, \
     else:
         raise TypeError(f"Supported float representations are: hex(int), float, bf16, fp32. Current input: {frepr}")
         
+def check_subnorm(f):
+    if abs(float(f)) < 2**-126:
+        rf = 0.0
+    else:
+        rf = f
+    return rf
 
 def check_float_equal(res1: Union[bf16, fp32], res2) -> bool:
     # nan cannot be compared
@@ -109,15 +115,13 @@ def calc_ulp_error(res1: Union[bf16, fp32], res2):
     # nan cannot be compared
     if (str(float(res1)) == 'nan') & (str(float(res2)) == 'nan'):
         ulp_error = 0
+    # I won't mind -0.0 and 0.0
+    elif (abs(float(res1)) == 0.0) & (abs(float(res2)) == 0.0):
+        ulp_error = 0
     elif isinstance(res1, bf16):
         ulp_error = bf16_ulp_dist((res1), float(res2))
     elif isinstance(res1, fp32):
         ulp_error = fp32_ulp_dist((res1), float(res2))
-    # I won't mind -0.0 and 0.0
-    elif (float(res1) == 0.0) & (float(res2) == -0.0):
-        ulp_error = 0
-    elif (float(res1) == -0.0) & (float(res2) == 0.0):
-        ulp_error = 0
     else:
         raise TypeError(f"Input type should be bf16 or fp32. Current input: {type(res1)}")
     return ulp_error
