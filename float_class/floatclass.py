@@ -159,7 +159,7 @@ class FloatBase(metaclass=ABCMeta):
     def _perform_sigle_operand_operation(self, op_class: Type) -> Self:
         a_bit: FPBitT = self.decompose()
         perform_op = op_class(a_bit)    # I don't want to annotate... This is hw_model classes
-        result_bit = perform_op.excute()
+        result_bit = perform_op.execute()
         result = self.compose(result_bit[0], result_bit[1], result_bit[2])
         return result
     
@@ -175,7 +175,7 @@ class FloatBase(metaclass=ABCMeta):
         a_bit: FPBitT = self_fp32.decompose()
         b_bit: FPBitT = other_fp32.decompose()
         perform_op = op_class(a_bit, b_bit)    # I don't want to annotate... This is hw_model classes
-        result_bit = perform_op.excute()
+        result_bit = perform_op.execute()
         fp32 = Float32(0, 0, 0)
         result_fp32 = fp32.compose(result_bit[0], result_bit[1], result_bit[2])
         bf16_output = isinstance(self, Bfloat16) & isinstance(other, Bfloat16)
@@ -195,11 +195,11 @@ class FloatBase(metaclass=ABCMeta):
         return self._perform_two_operand_operation(other, hw_model.Mul)
 
     @abstractmethod
-    def fma(cls, a, b, c):
+    def fma(cls, a, b, c, algorithm):
         pass
 
     @abstractmethod
-    def summation(cls, vector_list, mod):
+    def summation(cls, vector_list, mod, algorithm):
         pass
 
     def __int__(self) -> int:
@@ -213,7 +213,7 @@ class FloatBase(metaclass=ABCMeta):
             fp32_input = self
         fp32_bit = fp32_input.decompose()
         fptoint_obj = hw_model.FPtoInt(fp32_bit)
-        return fptoint_obj.excute()
+        return fptoint_obj.execute()
     
     @classmethod
     def inttofp(cls, i: int) -> None:
@@ -228,7 +228,7 @@ class FloatBase(metaclass=ABCMeta):
             fp32_input = self
         fp32_bit = fp32_input.decompose()
         pow = hw_model.Pow(fp32_bit, n)
-        result_bit = pow.excute()
+        result_bit = pow.execute()
         result_fp32 = Float32(0, 0, 0)
         result_fp32 = result_fp32.compose(result_bit[0], result_bit[1], result_bit[2])
         if isinstance(self, Bfloat16):
@@ -244,7 +244,7 @@ class FloatBase(metaclass=ABCMeta):
             fp32_input = self
         fp32_bit = fp32_input.decompose()
         neg = hw_model.Neg(fp32_bit)
-        result_bit = neg.excute()
+        result_bit = neg.execute()
         result_fp32 = Float32(0, 0, 0)
         result_fp32 = result_fp32.compose(result_bit[0], result_bit[1], result_bit[2])
         if isinstance(self, Bfloat16):
@@ -303,7 +303,7 @@ class Bfloat16(FloatBase):
         if (len(bin(i))-2) > 32:
             raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
         inttofp_obj = hw_model.InttoFP(i, 0)
-        result_bit = inttofp_obj.excute()
+        result_bit = inttofp_obj.execute()
         result = cls(0, 0, 0)
         result = result.compose(result_bit[0], result_bit[1], result_bit[2])
         return result
@@ -323,7 +323,8 @@ class Bfloat16(FloatBase):
         return util.float_to_tfbf16(float(self))
 
     @classmethod
-    def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16') -> 'Bfloat16':
+    #def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16', algorithm="SINGLE_PATH") -> 'Bfloat16':
+    def fma(cls, a: 'Bfloat16', b: 'Bfloat16', c: 'Bfloat16', algorithm="MULTI_PATH") -> 'Bfloat16':
         # mod 0: a, b = fp32, c = fp32
         # mod 1: a, b = bf16, c = bf16
         # mod 2: a, b = bf16, c = fp32
@@ -336,14 +337,14 @@ class Bfloat16(FloatBase):
         b_bit: Tuple[bit, bit, bit] = b_input.decompose()
         c_bit: Tuple[bit, bit, bit] = c_input.decompose()
         fma = hw_model.Fma(a_bit, b_bit, c_bit)
-        result_bit = fma.excute()
+        result_bit = fma.execute(algorithm)
         result = Float32(0, 0, 0)
         result = result.compose(result_bit[0], result_bit[1], result_bit[2])
         result = fp32_to_bf16(result)
         return result
 
     @classmethod
-    def summation(cls: Type[Self], vector_list: List[List[Self]], mod = 3) -> 'Bfloat16':
+    def summation(cls: Type[Self], vector_list: List[List[Self]], mod = 3, algorithm = "SINGLE_PATH") -> 'Bfloat16':
         #        vector input   scalar input   output
         # mod 0: fp32, fp32, fp32
         # mod 1: bf16, bf16, fp32
@@ -375,7 +376,7 @@ class Bfloat16(FloatBase):
             acc_bit = acc.decompose()
             vector_bit = [e.decompose() for e in v]
             summation = hw_model.Summation(vector_bit, acc_bit, mod)
-            acc_bit = summation.excute()
+            acc_bit = summation.execute(algorithm)
             # compose acc
             acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
             # convert acc result to bf16
@@ -412,7 +413,7 @@ class Float32(FloatBase):
         if (len(bin(i))-2) > 32:
             raise FloatTypeError('INVALID_INT', value = i, expected_type='32-bit integer')
         inttofp_obj = hw_model.InttoFP(i, 1)
-        result_bit = inttofp_obj.excute()
+        result_bit = inttofp_obj.execute()
         result = cls(0, 0, 0)
         result = result.compose(result_bit[0], result_bit[1], result_bit[2])
         return result
@@ -432,7 +433,8 @@ class Float32(FloatBase):
         return util.float_to_tffp32(float(self))
 
     @classmethod
-    def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32') -> Union['Bfloat16', 'Float32']:
+    #def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32', algorithm="SINGLE_PATH") -> Union['Bfloat16', 'Float32']:
+    def fma(cls, a: Union['Bfloat16', 'Float32'], b: Union['Bfloat16', 'Float32'], c: 'Float32', algorithm="MULTI_PATH") -> Union['Bfloat16', 'Float32']:
         # mod 0: a, b = fp32, c = fp32
         # mod 1: a, b = bf16, c = bf16
         # mod 2: a, b = bf16, c = fp32
@@ -452,14 +454,14 @@ class Float32(FloatBase):
         b_bit: Tuple[bit, bit, bit] = b_input.decompose()
         c_bit: Tuple[bit, bit, bit] = c_input.decompose()
         fma = hw_model.Fma(a_bit, b_bit, c_bit)
-        result_bit = fma.excute()
+        result_bit = fma.execute(algorithm)
         result = Float32(0, 0, 0)
         result = result.compose(result_bit[0], result_bit[1], result_bit[2])
         return result
 
     @classmethod
     #def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], mod = 0) -> Union['Bfloat16', 'Float32']:
-    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], acc_input = 0.0, mod = 0) -> Union['Bfloat16', 'Float32']:
+    def summation(cls: Type[Self], vector_list: List[List[Union['Bfloat16', Self]]], acc_input = 0.0, mod = 0, algorithm = "SINGLE_PATH") -> Union['Bfloat16', 'Float32']:
         #        vector input   scalar input   output
         # mod 0: fp32, fp32, fp32
         # mod 1: bf16, bf16, fp32
@@ -508,12 +510,14 @@ class Float32(FloatBase):
             vector_bit = [e.decompose() for e in v]
             #summation = hw_model.Summation(vector_bit, acc_bit)
             summation = hw_model.Summation(vector_bit, acc_bit, mod)
-            acc_bit = summation.excute()
+            acc_bit = summation.execute(algorithm)
             summation.set_acc(acc_bit)
             acc = result.compose(acc_bit[0], acc_bit[1], acc_bit[2])
             if mod == 1:
                 acc = fp32_to_bf16(acc)
         return acc
+    
+    #def vth(self, )
 
 # Converter function
 def bf16_to_fp32(bf16: Bfloat16) -> Float32:
@@ -522,7 +526,7 @@ def bf16_to_fp32(bf16: Bfloat16) -> Float32:
     """
     a_bit: FPBitT = bf16.decompose()
     bf16tofp32 = hw_model.BF16toFP32(a_bit)
-    result_bit = bf16tofp32.excute()
+    result_bit = bf16tofp32.execute()
     result = Float32(0, 0, 0)
     result = result.compose(result_bit[0], result_bit[1], result_bit[2])
     return result
@@ -534,7 +538,7 @@ def fp32_to_bf16(fp32: Float32) -> Bfloat16:
     """
     a_bit: FPBitT = fp32.decompose()
     fp32tobf16 = hw_model.FP32toBF16(a_bit)
-    result_bit = fp32tobf16.excute()
+    result_bit = fp32tobf16.execute()
     result = Bfloat16(0, 0, 0)
     result = result.compose(result_bit[0], result_bit[1], result_bit[2])
     return result
