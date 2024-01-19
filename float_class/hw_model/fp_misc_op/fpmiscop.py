@@ -16,7 +16,7 @@ class FloatPowerofTwo:
         self.a = a
         self.n: int = n
 
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         # Decompose Bfloat16 to BitString
         a_sign, a_exp, a_mant = self.a
 
@@ -76,7 +76,7 @@ class FloatNegative:
     def __init__(self, a: FPBitT) -> None:
         self.a = a
 
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         # Decompose Bfloat16 to BitString class
         a_sign, a_exp, a_mant = self.a
 
@@ -117,7 +117,7 @@ class FloatFPtoInt:
         self.rnd_mod = rnd_mod
         pass
 
-    def excute(self) -> int:
+    def execute(self) -> int:
         output_bitwidth = 1 + fp32_config.exponent_bits + fp32_config.mantissa_bits
         a_sign, a_exp, a_mant_nohidden = self.a 
         sig = ubit(output_bitwidth + fp32_config.mantissa_bits, f'1{a_mant_nohidden}')
@@ -226,7 +226,7 @@ class FloatInttoFP:
         return
     
     #def inttofp(self) -> Union[bf16, fp32]:
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         #fp_out = 0
         if (self.a == 0):
             if (self.mod == 1):
@@ -437,7 +437,7 @@ class FloatBfloat16toFloat32:
         self.a = a
         pass
 
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         # Decompose Bfloat16 to BitString
         mant_diff_bit = fp32_config.mantissa_bits - bf16_config.mantissa_bits # 16
         a_sign, a_exp, a_mant = self.a
@@ -454,7 +454,7 @@ class FloatFloat32toBfloat16:
         self.a = a
         pass
 
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         # Decompose Float32 to BitString
         mant_diff_bit = fp32_config.mantissa_bits - bf16_config.mantissa_bits
         a_sign, a_exp, a_mant = self.a
