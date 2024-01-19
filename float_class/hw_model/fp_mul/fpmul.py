@@ -11,7 +11,7 @@ class FloatMultiplication:
         self.a = a
         self.b = b
 
-    def excute(self) -> FPBitT:
+    def execute(self) -> FPBitT:
         # Decomposed bits
         a_sign, a_exp, a_mant_nohidden = self.a
         b_sign, b_exp, b_mant_nohidden = self.b
