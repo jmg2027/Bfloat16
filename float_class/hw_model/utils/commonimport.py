@@ -16,3 +16,5 @@ FloatBaseT = TypeVar('FloatBaseT')
 #
 FPBitT = Tuple[bit, bit, bit]
 FPBitVectorT = List[FPBitT]
+
+VSIZE = 32
