@@ -223,7 +223,7 @@ class TestSummation(TestOperationBase):
             test_hex_in.append(hex_hi)
             test_hex_in_all.append(test_hex_in)
         test_hex = f'{test_hex_in_all}, {res.hex()}'
-        print(test_hex)
+        #print(test_hex)
         test_res_str = f'{input}'
         if check_float_equal(res, tfres):
             test_res_str = f'PASSED({self.op}{input}), res: {res}, {res.hex()}'
@@ -231,7 +231,7 @@ class TestSummation(TestOperationBase):
         else:
             test_res_str = f'FAILED({self.op}{input}), bf16: {res}, {res.hex()}, tffp32: {tfres}, ulp_error: {calc_ulp_error(res, tfres)}'
             #test_res_str = f'FAILED({self.op}{[[i.hex() for i in j] for j in a]}), bf16: {res.hex()}, tffp32: {tfres}'
-        #print(test_res_str)
+        print(test_res_str)
         test_ret = list(i for i in input)
         test_ret.append(res)
         test_ret.append(test_res_str)
