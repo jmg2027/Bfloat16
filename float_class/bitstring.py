@@ -109,12 +109,28 @@ class BitString:
         else:
             raise BitStrTypeError('INVALID_INDEX', (self, index))
 
-    def __setitem__(self, index: int, value: str) -> None:
+    def __setitem__(self, index: Union[int, slice], value: Union[str, 'BitString', 'SignedBitString']) -> None:
         if isinstance(index, int):
-            value_proc = self._binary_string_process(value)
-            if value_proc not in '01':
-                raise BitStrValueError('INVALID_BIT', value_proc)
+            if isinstance(value, str):
+                value_proc = self._binary_string_process(value)
+                if value_proc not in '01':
+                    raise BitStrValueError('INVALID_BIT', value_proc)
+            elif isinstance(value, self.__class__):
+                value_proc = value.bin
+            else:
+                raise BitStrValueError('Use proper type to setitem')
             self.bin = self.bin[:self.bitwidth - index - 1] + value_proc + self.bin[self.bitwidth - index:]
+        elif isinstance(index, slice):
+            py_start, py_stop, py_step = index.indices(len(self))
+            if isinstance(value, str):
+                value_proc = self._binary_string_process(value)
+                if not all(p in '01' for p in value_proc):
+                    raise BitStrValueError('INVALID_BIT', value_proc)
+            elif isinstance(value, self.__class__):
+                value_proc = value.bin
+            else:
+                raise BitStrValueError('Use proper type to setitem')
+            self.bin = self.bin[:self.bitwidth - py_start - 1] + value_proc + self.bin[self.bitwidth - py_stop:]
         else:
             raise BitStrTypeError('INVALID_INDEX', (self, index))
 
@@ -411,6 +427,9 @@ class SignedBitString(BitString):
     def _sign_extend(self, new_width, value) -> str:
         sign_extension: str = self.sign * (new_width - len(value))
         return sign_extension + value
+    
+    def sign_extend(self, new_width) -> Self:
+        return self.__class__(new_width, self._sign_extend(new_width, self.bin))
 
     # Absolute value
     def __abs__(self) -> None:
